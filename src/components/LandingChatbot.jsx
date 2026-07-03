@@ -146,8 +146,8 @@ function ChatMessageBubble({
         className={cn(
           "relative shadow-sm px-4 py-3 rounded-3xl max-w-[88%] text-sm leading-6",
           message.role === "user"
-            ? "rounded-br-md bg-slate-900 text-white dark:bg-white dark:text-slate-900"
-            : "rounded-bl-md bg-muted text-foreground"
+            ? "rounded-br-md bg-[var(--primary)] text-white"
+            : "rounded-bl-md bg-[var(--bg-card)] text-[var(--text-primary)] border border-[var(--border-glass)]"
         )}
       >
         {displayedContent}
@@ -307,12 +307,9 @@ export default function LandingChatbot() {
               title="Open assistant"
               aria-label="Open menu assistant"
               className={cn(
-                "relative shadow-lg border border-white/10 rounded-full w-14 h-14",
-                "bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 text-white",
-                "hover:from-slate-800 hover:via-slate-800 hover:to-slate-700 hover:shadow-xl",
-                "dark:border-slate-800/80 dark:from-white dark:via-white dark:to-slate-100 dark:text-slate-900",
-                "dark:hover:from-slate-100 dark:hover:via-white dark:hover:to-white",
-                "ring-1 ring-black/5 dark:ring-white/20",
+                "relative shadow-lg border border-[var(--border-glass)] rounded-full w-14 h-14",
+                "bg-[var(--primary)] text-white",
+                "hover:bg-[var(--primary-hover)] hover:shadow-[var(--shadow-glow)]",
                 "transition-all duration-200 hover:scale-[1.03] active:scale-[0.97]",
                 "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               )}
@@ -321,7 +318,7 @@ export default function LandingChatbot() {
                 aria-hidden="true"
                 className={cn(
                   "absolute -inset-2 opacity-100 rounded-full pointer-events-none",
-                  "bg-slate-900/15 dark:bg-white/15",
+                  "bg-[var(--primary-glow)]",
                   "motion-safe:animate-[ping_2.5s_cubic-bezier(0.16,1,0.3,1)_infinite]"
                 )}
               />
@@ -331,36 +328,36 @@ export default function LandingChatbot() {
 
           <SheetContent
             side="right"
-            className="bg-background p-0 border-border/60 border-l w-full sm:max-w-md overflow-hidden"
+            className="bg-[var(--bg-primary)] text-[var(--text-primary)] p-0 border-[var(--border-glass)] border-l w-full sm:max-w-md overflow-hidden flex flex-col"
           >
             <div className="flex flex-col h-full">
-              <SheetHeader className="bg-gradient-to-b from-slate-50 dark:from-slate-950/40 via-background to-background px-6 py-5 border-border/60 border-b text-left">
+              <SheetHeader className="bg-[var(--bg-card)] px-6 py-5 border-[var(--border-glass)] border-b text-left">
                 <div className="flex items-center gap-3">
-                  <div className="flex justify-center items-center bg-slate-900 dark:bg-white shadow-sm rounded-2xl w-11 h-11 text-white dark:text-slate-900">
+                  <div className="flex justify-center items-center bg-[var(--primary)] shadow-sm rounded-2xl w-11 h-11 text-white">
                     <Sparkles className="w-5 h-5" />
                   </div>
                   <div>
-                    <SheetTitle className="font-semibold text-xl">
+                    <SheetTitle className="font-semibold text-xl text-[var(--text-primary)]">
                       Menu Assistant
                     </SheetTitle>
-                    <SheetDescription className="pt-1 text-sm leading-5">
+                    <SheetDescription className="pt-1 text-sm leading-5 text-[var(--text-secondary)]">
                       Smart, simple help for finding the perfect dish.
                     </SheetDescription>
                   </div>
                 </div>
               </SheetHeader>
 
-              <div className="px-6 py-4 border-border/60 border-b">
-                <div className="bg-muted/40 p-4 border border-border/70 rounded-3xl">
+              <div className="px-6 py-4 border-[var(--border-glass)] border-b">
+                <div className="bg-[var(--bg-card)] p-4 border border-[var(--border-glass)] rounded-3xl">
                   <div className="flex items-center gap-3">
-                    <div className="flex justify-center items-center bg-background shadow-sm rounded-2xl w-10 h-10">
-                      <MessageSquareText className="w-4 h-4 text-foreground" />
+                    <div className="flex justify-center items-center bg-[var(--bg-primary)] shadow-sm rounded-2xl w-10 h-10">
+                      <MessageSquareText className="w-4 h-4 text-[var(--primary)]" />
                     </div>
                     <div>
-                      <p className="font-semibold text-foreground text-sm">
+                      <p className="font-semibold text-[var(--text-primary)] text-sm">
                         Ask naturally
                       </p>
-                      <p className="text-muted-foreground text-xs leading-5">
+                      <p className="text-[var(--text-secondary)] text-xs leading-5">
                         Try asking for spicy food, vegetarian options, popular dishes, or drinks.
                       </p>
                     </div>
@@ -380,14 +377,14 @@ export default function LandingChatbot() {
 
                 {isThinking ? (
                   <div className="flex justify-start">
-                    <div className="bg-muted shadow-sm px-4 py-3 rounded-3xl rounded-bl-md text-muted-foreground text-sm">
+                    <div className="bg-[var(--bg-card)] border border-[var(--border-glass)] shadow-sm px-4 py-3 rounded-3xl rounded-bl-md text-[var(--text-muted)] text-sm">
                       Thinking of the best match for you...
                     </div>
                   </div>
                 ) : null}
 
                 <div className="space-y-2 pt-2">
-                  <p className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
+                  <p className="font-semibold text-[var(--text-muted)] text-xs uppercase tracking-[0.18em]">
                     Try one of these
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -397,7 +394,7 @@ export default function LandingChatbot() {
                         type="button"
                         disabled={hasActiveResponse}
                         onClick={() => void submitPrompt(prompt)}
-                        className="bg-background hover:bg-accent disabled:opacity-60 px-3 py-2 border border-border/70 rounded-full font-medium text-foreground text-xs transition-colors"
+                        className="bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)] disabled:opacity-60 px-3 py-2 border border-[var(--border-glass)] rounded-full font-medium text-[var(--text-secondary)] text-xs transition-colors"
                       >
                         {prompt}
                       </button>
@@ -408,20 +405,20 @@ export default function LandingChatbot() {
                 <div ref={endRef} />
               </div>
 
-              <div className="bg-background px-6 py-4 border-border/60 border-t">
+              <div className="bg-[var(--bg-card)] px-6 py-4 border-[var(--border-glass)] border-t">
                 <form onSubmit={handleSubmit} className="flex items-center gap-2">
                   <Input
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
                     placeholder="Ask about popular dishes, vegan options, or drinks"
-                    className="bg-muted/40 px-4 border-border/70 rounded-full h-11"
+                    className="bg-[var(--bg-primary)] text-[var(--text-primary)] placeholder-[var(--text-muted)] px-4 border-[var(--border-glass)] rounded-full h-11"
                   />
                   <Button
                     type={hasActiveResponse ? "button" : "submit"}
                     size="icon"
                     disabled={!hasActiveResponse && !draft.trim()}
                     onClick={hasActiveResponse ? stopAssistant : undefined}
-                    className="bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 rounded-full w-11 h-11 text-white dark:text-slate-900"
+                    className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] rounded-full w-11 h-11 text-white"
                   >
                     {hasActiveResponse ? (
                       <Square className="w-4 h-4 fill-current" />
