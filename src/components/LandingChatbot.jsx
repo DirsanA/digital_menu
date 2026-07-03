@@ -1,0 +1,443 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Bot, MessageSquareText, Send, Sparkles, Square } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
+
+function useTypingAnimation(
+  fullText,
+  isTyping,
+  onComplete,
+  wordsPerSecond = 8
+) {
+  const [displayedText, setDisplayedText] = useState("");
+  const wordsRef = useRef([]);
+  const currentIndexRef = useRef(0);
+  const timeoutRef = useRef(null);
+
+  useEffect(() => {
+    if (!isTyping) {
+      setDisplayedText(fullText);
+      return;
+    }
+
+    wordsRef.current = fullText.split(/(\s+)/);
+    currentIndexRef.current = 0;
+    setDisplayedText("");
+
+    const wordDelay = 1000 / wordsPerSecond;
+
+    const typeNext = () => {
+      if (currentIndexRef.current >= wordsRef.current.length) {
+        onComplete();
+        return;
+      }
+
+      const nextWords = wordsRef.current.slice(0, currentIndexRef.current + 1);
+      setDisplayedText(nextWords.join(""));
+      currentIndexRef.current += 1;
+
+      const randomDelay = wordDelay * (0.8 + Math.random() * 0.4);
+      timeoutRef.current = setTimeout(typeNext, randomDelay);
+    };
+
+    timeoutRef.current = setTimeout(typeNext, 300);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [fullText, isTyping, onComplete, wordsPerSecond]);
+
+  return isTyping ? displayedText : fullText;
+}
+
+const STARTER_PROMPTS = [
+  "What's on the menu today?",
+  "Do you have vegan options?",
+  "I need help deciding what to eat",
+];
+
+const INITIAL_MESSAGES = [
+  {
+    id: 1,
+    role: "assistant",
+    content:
+      "Hi, I am your menu assistant. Tell me what kind of food you are craving, and I will point you in the right direction.",
+    isTyping: false,
+  },
+];
+
+const SYSTEM_PROMPT =
+  "You are a helpful assistant for a digital menu. Ask brief clarifying questions when needed, suggest suitable food options, and keep answers concise and actionable.";
+
+async function fetchAssistantReply(
+  conversation,
+  signal
+) {
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...conversation.map((message) => ({
+          role: message.role,
+          content: message.content,
+        })),
+      ],
+    }),
+    signal,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `Request failed with status ${res.status}`);
+  }
+
+  const data = await res.json();
+
+  if (!data.content) {
+    throw new Error(
+      data.error ||
+      `Assistant response was empty${data.reason ? `: ${data.reason}` : "."}`,
+    );
+  }
+
+  return data.content;
+}
+
+function ChatMessageBubble({
+  message,
+  isCurrentlyTyping,
+  onTypingComplete,
+}) {
+  const handleComplete = useCallback(() => {
+    onTypingComplete(message.id);
+  }, [message.id, onTypingComplete]);
+
+  const displayedContent = useTypingAnimation(
+    message.content,
+    isCurrentlyTyping,
+    handleComplete,
+    12
+  );
+
+  return (
+    <div
+      className={cn(
+        "flex",
+        message.role === "user" ? "justify-end" : "justify-start"
+      )}
+    >
+      <div
+        className={cn(
+          "relative shadow-sm px-4 py-3 rounded-3xl max-w-[88%] text-sm leading-6",
+          message.role === "user"
+            ? "rounded-br-md bg-slate-900 text-white dark:bg-white dark:text-slate-900"
+            : "rounded-bl-md bg-muted text-foreground"
+        )}
+      >
+        {displayedContent}
+        {isCurrentlyTyping && (
+          <span className="inline-block bg-current ml-1 w-2 h-4 animate-pulse" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function LandingChatbot() {
+  const [messages, setMessages] = useState(INITIAL_MESSAGES);
+  const [draft, setDraft] = useState("");
+  const [isThinking, setIsThinking] = useState(false);
+  const [typingMessageId, setTypingMessageId] = useState(null);
+  const endRef = useRef(null);
+  const requestAbortRef = useRef(null);
+  const isSubmittingRef = useRef(false);
+  const nextMessageIdRef = useRef(INITIAL_MESSAGES.length + 1);
+  const typingMessageIdRef = useRef(null);
+
+  const getNextMessageId = useCallback(() => {
+    const nextId = nextMessageIdRef.current;
+    nextMessageIdRef.current += 1;
+    return nextId;
+  }, []);
+
+  useEffect(() => {
+    typingMessageIdRef.current = typingMessageId;
+  }, [typingMessageId]);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, isThinking, typingMessageId]);
+
+  useEffect(() => {
+    return () => {
+      requestAbortRef.current?.abort();
+    };
+  }, []);
+
+  const finishTypingMessage = useCallback((messageId) => {
+    setTypingMessageId((current) => (current === messageId ? null : current));
+    setMessages((current) =>
+      current.map((message) =>
+        message.id === messageId ? { ...message, isTyping: false } : message
+      )
+    );
+  }, []);
+
+  const stopAssistant = useCallback(() => {
+    requestAbortRef.current?.abort();
+    requestAbortRef.current = null;
+    isSubmittingRef.current = false;
+    setIsThinking(false);
+
+    const activeTypingMessageId = typingMessageIdRef.current;
+    if (activeTypingMessageId !== null) {
+      finishTypingMessage(activeTypingMessageId);
+    }
+  }, [finishTypingMessage]);
+
+  const submitPrompt = useCallback(
+    async (rawPrompt) => {
+      const prompt = rawPrompt.trim();
+      if (!prompt || isThinking || isSubmittingRef.current) return;
+
+      isSubmittingRef.current = true;
+
+      const userMessage = {
+        id: getNextMessageId(),
+        role: "user",
+        content: prompt,
+      };
+
+      const nextConversation = [...messages, userMessage];
+      const controller = new AbortController();
+
+      requestAbortRef.current = controller;
+      setMessages(nextConversation);
+      setDraft("");
+      setIsThinking(true);
+
+      try {
+        const content = await fetchAssistantReply(
+          nextConversation,
+          controller.signal
+        );
+
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        const newMessageId = getNextMessageId();
+        setMessages((current) => [
+          ...current,
+          { id: newMessageId, role: "assistant", content, isTyping: true },
+        ]);
+        setTypingMessageId(newMessageId);
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        const message =
+          error instanceof Error
+            ? error.message
+            : "I could not reach the assistant service right now. Please try again in a moment.";
+        const errorMessageId = getNextMessageId();
+        setMessages((current) => [
+          ...current,
+          {
+            id: errorMessageId,
+            role: "assistant",
+            content: `Sorry, ${message}`,
+            isTyping: true,
+          },
+        ]);
+        setTypingMessageId(errorMessageId);
+      } finally {
+        if (requestAbortRef.current === controller) {
+          requestAbortRef.current = null;
+        }
+
+        isSubmittingRef.current = false;
+        setIsThinking(false);
+      }
+    },
+    [getNextMessageId, isThinking, messages]
+  );
+
+  const handleSubmit = useCallback(
+    (event) => {
+      event.preventDefault();
+      void submitPrompt(draft);
+    },
+    [draft, submitPrompt]
+  );
+
+  const hasActiveResponse = isThinking || typingMessageId !== null;
+
+  return (
+    <div
+      className={cn(
+        "bottom-0 z-40 fixed inset-x-0 flex justify-end p-4 pointer-events-none",
+        "pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6 sm:pb-[max(1.25rem,env(safe-area-inset-bottom))]"
+      )}
+    >
+      <div className="pointer-events-auto">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button
+              type="button"
+              size="icon"
+              variant="default"
+              title="Open assistant"
+              aria-label="Open menu assistant"
+              className={cn(
+                "relative shadow-lg border border-white/10 rounded-full w-14 h-14",
+                "bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 text-white",
+                "hover:from-slate-800 hover:via-slate-800 hover:to-slate-700 hover:shadow-xl",
+                "dark:border-slate-800/80 dark:from-white dark:via-white dark:to-slate-100 dark:text-slate-900",
+                "dark:hover:from-slate-100 dark:hover:via-white dark:hover:to-white",
+                "ring-1 ring-black/5 dark:ring-white/20",
+                "transition-all duration-200 hover:scale-[1.03] active:scale-[0.97]",
+                "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "absolute -inset-2 opacity-100 rounded-full pointer-events-none",
+                  "bg-slate-900/15 dark:bg-white/15",
+                  "motion-safe:animate-[ping_2.5s_cubic-bezier(0.16,1,0.3,1)_infinite]"
+                )}
+              />
+              <Bot className="w-6 h-6" strokeWidth={1.75} />
+            </Button>
+          </SheetTrigger>
+
+          <SheetContent
+            side="right"
+            className="bg-background p-0 border-border/60 border-l w-full sm:max-w-md overflow-hidden"
+          >
+            <div className="flex flex-col h-full">
+              <SheetHeader className="bg-gradient-to-b from-slate-50 dark:from-slate-950/40 via-background to-background px-6 py-5 border-border/60 border-b text-left">
+                <div className="flex items-center gap-3">
+                  <div className="flex justify-center items-center bg-slate-900 dark:bg-white shadow-sm rounded-2xl w-11 h-11 text-white dark:text-slate-900">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <SheetTitle className="font-semibold text-xl">
+                      Menu Assistant
+                    </SheetTitle>
+                    <SheetDescription className="pt-1 text-sm leading-5">
+                      Smart, simple help for finding the perfect dish.
+                    </SheetDescription>
+                  </div>
+                </div>
+              </SheetHeader>
+
+              <div className="px-6 py-4 border-border/60 border-b">
+                <div className="bg-muted/40 p-4 border border-border/70 rounded-3xl">
+                  <div className="flex items-center gap-3">
+                    <div className="flex justify-center items-center bg-background shadow-sm rounded-2xl w-10 h-10">
+                      <MessageSquareText className="w-4 h-4 text-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground text-sm">
+                        Ask naturally
+                      </p>
+                      <p className="text-muted-foreground text-xs leading-5">
+                        Try asking for spicy food, vegetarian options, popular dishes, or drinks.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 space-y-4 px-6 py-5 overflow-y-auto">
+                {messages.map((message) => (
+                  <ChatMessageBubble
+                    key={message.id}
+                    message={message}
+                    isCurrentlyTyping={typingMessageId === message.id}
+                    onTypingComplete={finishTypingMessage}
+                  />
+                ))}
+
+                {isThinking ? (
+                  <div className="flex justify-start">
+                    <div className="bg-muted shadow-sm px-4 py-3 rounded-3xl rounded-bl-md text-muted-foreground text-sm">
+                      Thinking of the best match for you...
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="space-y-2 pt-2">
+                  <p className="font-semibold text-muted-foreground text-xs uppercase tracking-[0.18em]">
+                    Try one of these
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {STARTER_PROMPTS.map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        disabled={hasActiveResponse}
+                        onClick={() => void submitPrompt(prompt)}
+                        className="bg-background hover:bg-accent disabled:opacity-60 px-3 py-2 border border-border/70 rounded-full font-medium text-foreground text-xs transition-colors"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div ref={endRef} />
+              </div>
+
+              <div className="bg-background px-6 py-4 border-border/60 border-t">
+                <form onSubmit={handleSubmit} className="flex items-center gap-2">
+                  <Input
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    placeholder="Ask about popular dishes, vegan options, or drinks"
+                    className="bg-muted/40 px-4 border-border/70 rounded-full h-11"
+                  />
+                  <Button
+                    type={hasActiveResponse ? "button" : "submit"}
+                    size="icon"
+                    disabled={!hasActiveResponse && !draft.trim()}
+                    onClick={hasActiveResponse ? stopAssistant : undefined}
+                    className="bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 rounded-full w-11 h-11 text-white dark:text-slate-900"
+                  >
+                    {hasActiveResponse ? (
+                      <Square className="w-4 h-4 fill-current" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                    <span className="sr-only">
+                      {hasActiveResponse ? "Stop response" : "Send message"}
+                    </span>
+                  </Button>
+                </form>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </div>
+  );
+}
