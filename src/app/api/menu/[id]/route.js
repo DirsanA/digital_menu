@@ -1,46 +1,62 @@
 import { NextResponse } from 'next/server';
-import { updateMenuItem, deleteMenuItem } from '@/lib/db';
+import { menuService } from '@/services/menuService';
+import { resolveTenant, transformMenuItem } from '@/lib/tenant';
+import { handleApiError } from '@/lib/errors';
 
 export async function PUT(request, { params }) {
   try {
-    // Await params as required by Next.js 15+ 
     const { id } = await params;
-    const formData = await request.formData();
-    
-    const updates = {};
-    if (formData.has('name')) updates.name = formData.get('name');
-    if (formData.has('price')) updates.price = parseFloat(formData.get('price'));
-    if (formData.has('category')) updates.category = formData.get('category');
-    if (formData.has('description')) updates.description = formData.get('description');
-    if (formData.has('tags')) updates.tags = formData.get('tags').split(',').map(t => t.trim()).filter(Boolean);
-    if (formData.has('available')) updates.available = formData.get('available') === 'true';
+    const tenant = await resolveTenant(request);
+    const contentType = request.headers.get('content-type') || '';
 
-    const file = formData.get('image');
-    if (file && file instanceof File) {
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      updates.image = `data:${file.type};base64,${buffer.toString('base64')}`;
-    } else if (typeof file === 'string' && file.trim() !== '') {
-      updates.image = file;
+    let updates;
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+
+      updates = {};
+      if (formData.has('name')) updates.name = formData.get('name');
+      if (formData.has('price')) updates.price = parseFloat(formData.get('price'));
+      if (formData.has('category')) updates.category = formData.get('category');
+      if (formData.has('description')) updates.description = formData.get('description');
+      if (formData.has('tags')) {
+        updates.tags = formData.get('tags').split(',').map((t) => t.trim()).filter(Boolean);
+      }
+      if (formData.has('available')) updates.available = formData.get('available') === 'true';
+
+      const file = formData.get('image');
+      if (file && file instanceof File) {
+        const bytes = await file.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        updates.imageUrl = `data:${file.type};base64,${buffer.toString('base64')}`;
+      } else if (typeof file === 'string' && file.trim() !== '') {
+        updates.imageUrl = file;
+      }
+    } else {
+      const body = await request.json();
+      updates = {};
+      if (body.name !== undefined) updates.name = body.name;
+      if (body.price !== undefined) updates.price = parseFloat(body.price);
+      if (body.category !== undefined) updates.category = body.category;
+      if (body.description !== undefined) updates.description = body.description;
+      if (body.tags !== undefined) updates.tags = Array.isArray(body.tags) ? body.tags : [];
+      if (body.available !== undefined) updates.available = body.available;
+      if (body.imageUrl !== undefined) updates.imageUrl = body.imageUrl;
     }
 
-    const updated = updateMenuItem(id, updates);
-    if (!updated) return NextResponse.json({ success: false, message: 'Item not found' }, { status: 404 });
-
-    return NextResponse.json({ success: true, data: updated });
+    const item = await menuService.update(id, tenant.id, updates);
+    return NextResponse.json({ success: true, data: transformMenuItem(item) });
   } catch (error) {
-    console.error('Error updating menu item:', error);
-    return NextResponse.json({ success: false, message: 'Internal Server Error' }, { status: 500 });
+    return handleApiError(error);
   }
 }
 
 export async function DELETE(request, { params }) {
   try {
     const { id } = await params;
-    const success = deleteMenuItem(id);
-    if (!success) return NextResponse.json({ success: false, message: 'Item not found' }, { status: 404 });
+    const tenant = await resolveTenant(request);
+    await menuService.delete(id, tenant.id);
     return NextResponse.json({ success: true, message: 'Item deleted' });
   } catch (error) {
-    return NextResponse.json({ success: false, message: 'Internal Server Error' }, { status: 500 });
+    return handleApiError(error);
   }
 }

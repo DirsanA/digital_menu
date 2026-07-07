@@ -1,19 +1,16 @@
 import { NextResponse } from 'next/server';
-import { updateOrderStatus } from '@/lib/db';
+import { orderService } from '@/services/orderService';
+import { resolveTenant, transformOrder } from '@/lib/tenant';
+import { handleApiError } from '@/lib/errors';
 
 export async function PUT(request, { params }) {
   try {
     const { id } = await params;
-    const body = await request.json();
-    const { status } = body;
-    
-    if (!status) return NextResponse.json({ success: false, message: 'Status is required' }, { status: 400 });
-
-    const updated = updateOrderStatus(id, status);
-    if (!updated) return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
-    
-    return NextResponse.json({ success: true, data: updated });
+    const tenant = await resolveTenant(request);
+    const { status } = await request.json();
+    const order = await orderService.updateStatus(id, tenant.id, status);
+    return NextResponse.json({ success: true, data: transformOrder(order) });
   } catch (error) {
-    return NextResponse.json({ success: false, message: 'Internal Server Error' }, { status: 500 });
+    return handleApiError(error);
   }
 }

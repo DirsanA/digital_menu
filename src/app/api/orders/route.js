@@ -1,22 +1,30 @@
 import { NextResponse } from 'next/server';
-import { getOrders, addOrder } from '@/lib/db';
+import { orderService } from '@/services/orderService';
+import { resolveTenant, transformOrder } from '@/lib/tenant';
+import { handleApiError } from '@/lib/errors';
 
-export async function GET() {
-  return NextResponse.json({ success: true, data: getOrders() });
+export async function GET(request) {
+  try {
+    const tenant = await resolveTenant(request);
+    const { searchParams } = new URL(request.url);
+    const filters = {};
+    if (searchParams.get('status')) filters.status = searchParams.get('status');
+    if (searchParams.get('tableNumber')) filters.tableNumber = parseInt(searchParams.get('tableNumber'));
+
+    const orders = await orderService.findByTenant(tenant.id, filters);
+    return NextResponse.json({ success: true, data: orders.map(transformOrder) });
+  } catch (error) {
+    return handleApiError(error);
+  }
 }
 
 export async function POST(request) {
   try {
+    const tenant = await resolveTenant(request);
     const body = await request.json();
-    const { tableNumber, items, notes } = body;
-    
-    if (!tableNumber || !items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ success: false, message: 'Invalid order data' }, { status: 400 });
-    }
-
-    const newOrder = addOrder({ tableNumber, items, notes });
-    return NextResponse.json({ success: true, data: newOrder }, { status: 201 });
+    const order = await orderService.create(tenant.id, body);
+    return NextResponse.json({ success: true, data: transformOrder(order) }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ success: false, message: 'Internal Server Error' }, { status: 500 });
+    return handleApiError(error);
   }
 }
