@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { menuService } from '@/services/menuService';
 import { resolveTenant, transformMenuItem } from '@/lib/tenant';
+import { uploadImage } from '@/lib/cloudinary';
 import { handleApiError } from '@/lib/errors';
 
 export async function PUT(request, { params }) {
@@ -25,9 +26,7 @@ export async function PUT(request, { params }) {
 
       const file = formData.get('image');
       if (file && file instanceof File) {
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        updates.imageUrl = `data:${file.type};base64,${buffer.toString('base64')}`;
+        updates.imageUrl = await uploadImage(file);
       } else if (typeof file === 'string' && file.trim() !== '') {
         updates.imageUrl = file;
       }

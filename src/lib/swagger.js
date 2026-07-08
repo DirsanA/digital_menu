@@ -300,6 +300,18 @@ or fall back to the \`NEXT_PUBLIC_DEFAULT_TENANT\` environment variable.`,
           message: { type: 'string', example: 'Operation successful' },
         },
       },
+      UploadResponse: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean', example: true },
+          data: {
+            type: 'object',
+            properties: {
+              url: { type: 'string', example: 'https://res.cloudinary.com/your-cloud/image/upload/v1/digital_menu/sample.jpg' },
+            },
+          },
+        },
+      },
     },
   },
   tags: [
@@ -311,6 +323,7 @@ or fall back to the \`NEXT_PUBLIC_DEFAULT_TENANT\` environment variable.`,
     { name: 'Domains', description: 'Custom domain management (admin only)' },
     { name: 'Chat', description: 'AI chatbot powered by Groq (Llama 3)' },
     { name: 'Conversations', description: 'Chat conversation persistence' },
+    { name: 'Upload', description: 'Image upload to Cloudinary' },
   ],
   paths: {
     '/api/auth/login': {
@@ -1323,6 +1336,51 @@ or fall back to the \`NEXT_PUBLIC_DEFAULT_TENANT\` environment variable.`,
           },
           '401': { description: 'Unauthorized' },
           '403': { description: 'Insufficient permissions (admin only)' },
+        },
+      },
+    },
+    '/api/upload': {
+      post: {
+        tags: ['Upload'],
+        summary: 'Upload image to Cloudinary',
+        description: 'Uploads an image file to Cloudinary and returns the secure URL. Requires JWT authentication.',
+        operationId: 'uploadImage',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'multipart/form-data': {
+              schema: {
+                type: 'object',
+                required: ['image'],
+                properties: {
+                  image: {
+                    type: 'string',
+                    format: 'binary',
+                    description: 'Image file (JPG, PNG, WEBP). Max 5MB.',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'Image uploaded successfully',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/UploadResponse' },
+              },
+            },
+          },
+          '400': {
+            description: 'Missing file, invalid type, or file too large',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } },
+          },
+          '401': {
+            description: 'Missing or invalid token',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ErrorResponse' } } },
+          },
         },
       },
     },
