@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { menuService } from '@/services/menuService';
 import { resolveTenant, transformMenuItem } from '@/lib/tenant';
+import { uploadImage } from '@/lib/cloudinary';
 import { handleApiError } from '@/lib/errors';
 
 export async function GET(request) {
@@ -36,9 +37,7 @@ export async function POST(request) {
       let imageUrl = '/images/default_food.jpg';
       const file = formData.get('image');
       if (file && file instanceof File) {
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        imageUrl = `data:${file.type};base64,${buffer.toString('base64')}`;
+        imageUrl = await uploadImage(file);
       } else if (typeof file === 'string' && file.trim() !== '') {
         imageUrl = file;
       }
