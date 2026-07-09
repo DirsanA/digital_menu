@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
-import { getOrderById } from '@/lib/db';
+import { orderService } from '@/services/orderService';
+import { resolveTenant, transformOrder } from '@/lib/tenant';
+import { handleApiError } from '@/lib/errors';
 
 export async function GET(request, { params }) {
   try {
     const { id } = await params;
-    const order = getOrderById(id);
-    
-    if (!order) return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
-    return NextResponse.json({ success: true, data: order });
+    const tenant = await resolveTenant(request);
+    const order = await orderService.findById(id, tenant.id);
+    return NextResponse.json({ success: true, data: transformOrder(order) });
   } catch (error) {
-    return NextResponse.json({ success: false, message: 'Internal Server Error' }, { status: 500 });
+    return handleApiError(error);
   }
 }

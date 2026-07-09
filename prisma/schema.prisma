@@ -1,0 +1,151 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  admin
+  manager
+  kitchen
+  server
+
+  @@map("user_role")
+}
+
+enum OrderStatus {
+  pending
+  preparing
+  ready
+  completed
+  cancelled
+
+  @@map("order_status")
+}
+
+// ─── Tenant ──────────────────────────────────────────────────────────────────
+
+model Tenant {
+  id            String   @id @default(uuid()) @db.Uuid
+  slug          String   @unique
+  name          String
+  description   String?
+  logoUrl       String?  @map("logo_url")
+  coverImageUrl String?  @map("cover_image_url")
+  primaryColor  String   @default("#6366f1") @map("primary_color")
+  accentColor   String   @default("#f59e0b") @map("accent_color")
+  customDomain  String?  @unique @map("custom_domain")
+  timezone      String   @default("UTC")
+  currency      String   @default("USD")
+  serviceCharge Decimal  @default(10.00) @map("service_charge") @db.Decimal(5, 2)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  users         User[]
+  menuItems     MenuItem[]
+  orders        Order[]
+  conversations Conversation[]
+  domains       TenantDomain[]
+
+  @@map("tenants")
+}
+
+// ─── User (staff) ────────────────────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  tenantId     String     @map("tenant_id") @db.Uuid
+  email        String     @db.VarChar(255)
+  passwordHash String     @map("password_hash") @db.VarChar(255)
+  displayName  String     @map("display_name") @db.VarChar(255)
+  role         UserRole   @default(server)
+  isActive     Boolean    @default(true) @map("is_active")
+  lastLoginAt  DateTime?  @map("last_login_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+// ─── Menu Item ───────────────────────────────────────────────────────────────
+
+model MenuItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  name        String   @db.VarChar(255)
+  price       Decimal  @db.Decimal(10, 2)
+  description String   @default("")
+  category    String   @db.VarChar(100)
+  tags        String[]
+  imageUrl    String   @default("/images/default_food.jpg") @map("image_url")
+  available   Boolean  @default(true)
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, category, sortOrder])
+  @@map("menu_items")
+}
+
+// ─── Order ───────────────────────────────────────────────────────────────────
+
+model Order {
+  id            String      @id @default(uuid()) @db.Uuid
+  tenantId      String      @map("tenant_id") @db.Uuid
+  orderNumber   Int         @default(autoincrement()) @map("order_number")
+  tableNumber   Int         @map("table_number")
+  status        OrderStatus @default(pending)
+  notes         String      @default("")
+  items         Json        @db.JsonB
+  subtotal      Decimal     @db.Decimal(10, 2)
+  serviceCharge Decimal     @map("service_charge") @db.Decimal(10, 2)
+  totalAmount   Decimal     @map("total_amount") @db.Decimal(10, 2)
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, createdAt(sort: Desc)])
+  @@index([tenantId, tableNumber, createdAt(sort: Desc)])
+  @@map("orders")
+}
+
+// ─── Conversation (AI chatbot) ───────────────────────────────────────────────
+
+model Conversation {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  sessionId String   @map("session_id") @db.VarChar(255)
+  messages  Json     @default("[]") @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, sessionId])
+  @@map("conversations")
+}
+
+// ─── Tenant Custom Domain ────────────────────────────────────────────────────
+
+model TenantDomain {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  domain    String   @unique @db.VarChar(255)
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_domains")
+}
