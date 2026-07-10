@@ -3374,21 +3374,126 @@ body::after {
 .qrcode-dest-url { color: var(--primary-light); }
 
 /* ── QR Print Styles ── */
-.qr-print-sheet { padding: 0.5in; font-family: 'Inter', sans-serif; }
-.qr-print-header { text-align: center; margin-bottom: 0.5in; }
-.qr-print-header h1 { font-family: 'Outfit', sans-serif; font-size: 28pt; margin-bottom: 4pt; }
-.qr-print-header p { font-size: 12pt; color: #666; }
-.qr-print-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.25in; }
-.qr-print-card { text-align: center; padding: 0.15in; border: 1px solid #ddd; border-radius: 6pt; page-break-inside: avoid; }
-.qr-print-img { width: 140px; height: 140px; margin: 0 auto; display: block; }
-.qr-print-label { font-size: 14pt; font-weight: 700; margin-top: 4pt; }
-.qr-print-url { font-size: 7pt; color: #999; word-break: break-all; margin-top: 2pt; }
+.qr-print-root {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  pointer-events: none;
+  opacity: 0;
+  z-index: -1;
+}
+
+.qr-print-sheet {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.4in;
+  font-family: 'Inter', sans-serif;
+  background: #fff;
+  color: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.qr-print-header { text-align: center; margin-bottom: 0.35in; }
+.qr-print-header h1 { font-family: 'Outfit', sans-serif; font-size: 24pt; margin: 0 0 6pt; color: #000; }
+.qr-print-header p { font-size: 11pt; color: #444; margin: 0; }
+.qr-print-grid { display: flex; justify-content: center; width: 100%; }
+.qr-print-card {
+  text-align: center;
+  padding: 0.2in;
+  border: 1px solid #ccc;
+  border-radius: 6pt;
+  page-break-inside: avoid;
+  box-sizing: border-box;
+}
+.qr-print-img {
+  width: 2.25in;
+  height: 2.25in;
+  max-width: 100%;
+  margin: 0 auto;
+  display: block;
+  object-fit: contain;
+}
+.qr-print-label { font-size: 13pt; font-weight: 700; margin-top: 0.15in; color: #000; }
+.qr-print-url { font-size: 8pt; color: #555; word-break: break-all; margin-top: 0.1in; max-width: 3.5in; }
 
 @media print {
-  body { background: white !important; }
-  .admin-shell, .navbar, .landing-chatbot, .floating-cart-btn { display: none !important; }
-  .qr-print-sheet { display: block !important; }
-  @page { margin: 0.3in; }
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body > *:not(#qr-print-root) {
+    display: none !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  #qr-print-root {
+    display: block !important;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: auto !important;
+    background: #fff !important;
+  }
+
+  .qr-print-sheet {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    min-height: auto !important;
+    padding: 0.35in !important;
+    background: #fff !important;
+    color: #000 !important;
+    page-break-before: avoid !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .qr-print-grid {
+    display: flex !important;
+    justify-content: center !important;
+    width: 100% !important;
+    overflow: visible !important;
+  }
+
+  .qr-print-card {
+    overflow: visible !important;
+    page-break-inside: avoid !important;
+  }
+
+  .qr-print-img {
+    width: 2.25in !important;
+    height: 2.25in !important;
+    max-width: none !important;
+    overflow: visible !important;
+    object-fit: contain !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  @page {
+    margin: 0.35in;
+    size: auto;
+  }
 }
 
 /* ═══════════════════════════════════════════

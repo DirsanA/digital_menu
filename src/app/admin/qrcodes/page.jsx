@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
-import { QrCode, RefreshCw, Copy, Printer, Download } from 'lucide-react';
+import { generateQrPdf, buildQrImageUrl } from '@/lib/qrPdf';
+import { QrCode, RefreshCw, Copy, FileDown, Download } from 'lucide-react';
 
 const QR_API = (data, size = 200) =>
   `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
@@ -13,34 +14,16 @@ function buildRestaurantUrl(baseUrl, slug) {
   return `${baseUrl}/?slug=${slug}`;
 }
 
-function PrintSheet({ menuUrl, tenantName }) {
-  return (
-    <div className="qr-print-sheet">
-      <div className="qr-print-header">
-        <h1>{tenantName || 'Restaurant'}</h1>
-        <p>Scan to view our menu and place your order</p>
-      </div>
-      <div className="qr-print-grid" style={{ justifyContent: 'center' }}>
-        <div className="qr-print-card">
-          <img src={QR_API(menuUrl, 220)} alt="" className="qr-print-img" />
-          <div className="qr-print-label">Scan to Order</div>
-          <div className="qr-print-url">{menuUrl}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function QrCodesPage() {
   const { user } = useAuth();
   const [qrCode, setQrCode] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [printMode, setPrintMode] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [baseUrl] = useState(() =>
     typeof window !== 'undefined' ? window.location.origin : ''
   );
-  const printRef = useRef(null);
+  const pdfLockRef = useRef(false);
 
   const slug = user?.tenantSlug || '';
   const menuUrl = buildRestaurantUrl(baseUrl, slug);
@@ -55,18 +38,6 @@ export default function QrCodesPage() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (printMode) {
-      setTimeout(() => { window.print(); }, 300);
-    }
-  }, [printMode]);
-
-  useEffect(() => {
-    const handleAfterPrint = () => setPrintMode(false);
-    window.addEventListener('afterprint', handleAfterPrint);
-    return () => window.removeEventListener('afterprint', handleAfterPrint);
-  }, []);
 
   useEffect(() => {
     fetchQrCode();
@@ -91,17 +62,32 @@ export default function QrCodesPage() {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (pdfLockRef.current) return;
+    const url = qrCode?.url || menuUrl;
+    if (!url) return;
+
+    pdfLockRef.current = true;
+    setDownloadingPdf(true);
+    try {
+      await generateQrPdf({
+        menuUrl: url,
+        tenantName: user?.tenantName || 'Restaurant',
+        imageSrc: buildQrImageUrl(url, 600),
+        filename: `${slug || 'restaurant'}-qr-code.pdf`,
+      });
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'Could not generate PDF. Try downloading the PNG instead.');
+    } finally {
+      pdfLockRef.current = false;
+      setDownloadingPdf(false);
+    }
+  };
+
   const copyUrl = () => navigator.clipboard.writeText(qrCode?.url || menuUrl);
 
   if (loading) return <div className="view-loader-container"><div className="spinner" /></div>;
-
-  if (printMode && menuUrl) {
-    return (
-      <div ref={printRef}>
-        <PrintSheet menuUrl={qrCode?.url || menuUrl} tenantName={user?.tenantName} />
-      </div>
-    );
-  }
 
   const displayUrl = qrCode?.url || menuUrl;
 
@@ -111,8 +97,8 @@ export default function QrCodesPage() {
         <h1><QrCode size={22} /> Restaurant QR Code</h1>
         <div className="page-header-right">
           {qrCode && (
-            <button className="btn-secondary" onClick={() => setPrintMode(true)}>
-              <Printer size={16} /> Print
+            <button className="btn-secondary" onClick={handleDownloadPdf} disabled={downloadingPdf}>
+              <FileDown size={16} /> {downloadingPdf ? 'Generating PDF…' : 'Download PDF'}
             </button>
           )}
           <button className="btn-primary" onClick={handleGenerate} disabled={generating || !menuUrl}>
@@ -161,7 +147,7 @@ export default function QrCodesPage() {
                 download={`${slug || 'restaurant'}-menu-qr.png`}
                 className="btn-sm btn-secondary"
               >
-                <Download size={13} /> Download
+                <Download size={13} /> PNG
               </a>
             </div>
           </div>
