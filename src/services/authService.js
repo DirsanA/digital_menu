@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { prisma } from '@/lib/prisma';
 import { userService } from '@/services/userService';
 import { tenantService } from '@/services/tenantService';
 import { UnauthorizedError } from '@/lib/errors';
@@ -10,6 +11,13 @@ const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 
 export const authService = {
   async login(email, password, tenantSlug) {
+    if (tenantSlug) {
+      return this.loginStaff(email, password, tenantSlug);
+    }
+    return this.loginSuperAdmin(email, password);
+  },
+
+  async loginStaff(email, password, tenantSlug) {
     const tenant = await tenantService.findBySlug(tenantSlug);
     const user = await userService.findByEmail(tenant.id, email);
 
@@ -38,6 +46,37 @@ export const authService = {
         tenantId: tenant.id,
         tenantSlug: tenant.slug,
         tenantName: tenant.name,
+      },
+    };
+  },
+
+  async loginSuperAdmin(email, password) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user || user.role !== 'super_admin' || !user.isActive) {
+      throw new UnauthorizedError('Invalid credentials');
+    }
+
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      throw new UnauthorizedError('Invalid credentials');
+    }
+
+    await userService.updateLastLogin(user.id);
+
+    const token = jwt.sign(
+      { sub: user.id, role: 'super_admin', email: user.email },
+      JWT_SECRET,
+      { expiresIn: '2h' }
+    );
+
+    return {
+      accessToken: token,
+      refreshToken: null,
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        role: 'super_admin',
       },
     };
   },

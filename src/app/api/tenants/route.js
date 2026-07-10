@@ -6,7 +6,7 @@ import { handleApiError } from '@/lib/errors';
 export async function GET(request) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.ADMIN)(user);
+    authorize(ROLES.SUPER_ADMIN)(user);
     const tenants = await tenantService.findAll();
     return NextResponse.json({ success: true, data: tenants });
   } catch (error) {
@@ -17,7 +17,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.ADMIN)(user);
+    authorize(ROLES.SUPER_ADMIN)(user);
     const body = await request.json();
     const tenant = await tenantService.create(body);
     return NextResponse.json({ success: true, data: tenant }, { status: 201 });

@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 import { menuService } from '@/services/menuService';
 import { resolveTenant, transformMenuItem } from '@/lib/tenant';
+import { authenticate, authorize, ROLES } from '@/lib/middleware';
 import { uploadImage } from '@/lib/cloudinary';
 import { handleApiError } from '@/lib/errors';
 
 export async function PUT(request, { params }) {
   try {
+    const user = await authenticate(request);
+    authorize(ROLES.MANAGER, ROLES.OWNER)(user);
     const { id } = await params;
     const tenant = await resolveTenant(request);
     const contentType = request.headers.get('content-type') || '';
@@ -51,6 +54,8 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
+    const user = await authenticate(request);
+    authorize(ROLES.MANAGER, ROLES.OWNER)(user);
     const { id } = await params;
     const tenant = await resolveTenant(request);
     await menuService.delete(id, tenant.id);
