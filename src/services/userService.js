@@ -11,6 +11,24 @@ export const userService = {
     });
   },
 
+  async findOwnerByTenant(tenantId) {
+    return prisma.user.findFirst({
+      where: { tenantId, role: 'owner' },
+      select: { id: true, email: true, displayName: true, role: true, isActive: true, createdAt: true, lastLoginAt: true },
+    });
+  },
+
+  async createOwner(tenantId, data) {
+    const existingOwner = await this.findOwnerByTenant(tenantId);
+    if (existingOwner) {
+      throw new ValidationError('This restaurant already has an owner. Edit the existing owner instead.');
+    }
+    if (!data.email || !data.password) {
+      throw new ValidationError('Email and password are required');
+    }
+    return this.create(tenantId, { ...data, role: 'owner' });
+  },
+
   async findAll() {
     return prisma.user.findMany({
       orderBy: { displayName: 'asc' },

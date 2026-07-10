@@ -1,104 +1,172 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '@/lib/api';
-import { QrCode, Plus, Trash2, X, Copy, Download } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { QrCode, RefreshCw, Copy, Printer, Download } from 'lucide-react';
+
+const QR_API = (data, size = 200) =>
+  `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}`;
+
+function buildRestaurantUrl(baseUrl, slug) {
+  if (!baseUrl || !slug) return '';
+  return `${baseUrl}/?slug=${slug}`;
+}
+
+function PrintSheet({ menuUrl, tenantName }) {
+  return (
+    <div className="qr-print-sheet">
+      <div className="qr-print-header">
+        <h1>{tenantName || 'Restaurant'}</h1>
+        <p>Scan to view our menu and place your order</p>
+      </div>
+      <div className="qr-print-grid" style={{ justifyContent: 'center' }}>
+        <div className="qr-print-card">
+          <img src={QR_API(menuUrl, 220)} alt="" className="qr-print-img" />
+          <div className="qr-print-label">Scan to Order</div>
+          <div className="qr-print-url">{menuUrl}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function QrCodesPage() {
-  const [qrcodes, setQrcodes] = useState([]);
-  const [tables, setTables] = useState([]);
+  const { user } = useAuth();
+  const [qrCode, setQrCode] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState(false);
-  const [tableId, setTableId] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [printMode, setPrintMode] = useState(false);
+  const [baseUrl] = useState(() =>
+    typeof window !== 'undefined' ? window.location.origin : ''
+  );
+  const printRef = useRef(null);
 
-  useEffect(() => { Promise.all([fetchQrcodes(), fetchTables()]); }, []);
+  const slug = user?.tenantSlug || '';
+  const menuUrl = buildRestaurantUrl(baseUrl, slug);
 
-  const fetchQrcodes = async () => {
-    try { const data = await apiFetch('/qrcodes'); if (data) setQrcodes(data); }
-    catch (err) { console.error(err); }
-    finally { setLoading(false); }
-  };
-
-  const fetchTables = async () => {
-    try { const data = await apiFetch('/tables'); if (data) setTables(data.filter(t => t.isActive)); }
-    catch (err) { console.error(err); }
-  };
-
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    if (!tableId) return;
+  const fetchQrCode = async () => {
     try {
-      await apiFetch('/qrcodes', { method: 'POST', body: JSON.stringify({ tableId }) });
-      setModal(false); setTableId(''); fetchQrcodes();
-    } catch (err) { console.error(err); }
+      const data = await apiFetch('/qrcodes');
+      if (data) setQrCode(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this QR code?')) return;
-    try { await apiFetch(`/qrcodes/${id}`, { method: 'DELETE' }); fetchQrcodes(); }
-    catch (err) { console.error(err); }
+  useEffect(() => {
+    if (printMode) {
+      setTimeout(() => { window.print(); }, 300);
+    }
+  }, [printMode]);
+
+  useEffect(() => {
+    const handleAfterPrint = () => setPrintMode(false);
+    window.addEventListener('afterprint', handleAfterPrint);
+    return () => window.removeEventListener('afterprint', handleAfterPrint);
+  }, []);
+
+  useEffect(() => {
+    fetchQrCode();
+  }, []);
+
+  const handleGenerate = async () => {
+    if (!menuUrl) return;
+    setGenerating(true);
+    try {
+      const data = await apiFetch('/qrcodes', {
+        method: 'POST',
+        body: JSON.stringify({
+          url: menuUrl,
+          label: user?.tenantName ? `${user.tenantName} Menu` : 'Restaurant Menu',
+        }),
+      });
+      if (data) setQrCode(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setGenerating(false);
+    }
   };
 
-  const copyUrl = (url) => {
-    navigator.clipboard.writeText(url);
-  };
-
-  const getTableNumber = (id) => tables.find(t => t.id === id)?.number || id;
+  const copyUrl = () => navigator.clipboard.writeText(qrCode?.url || menuUrl);
 
   if (loading) return <div className="view-loader-container"><div className="spinner" /></div>;
+
+  if (printMode && menuUrl) {
+    return (
+      <div ref={printRef}>
+        <PrintSheet menuUrl={qrCode?.url || menuUrl} tenantName={user?.tenantName} />
+      </div>
+    );
+  }
+
+  const displayUrl = qrCode?.url || menuUrl;
 
   return (
     <div className="data-page fade-in">
       <div className="page-header">
-        <h1><QrCode size={22} /> QR Codes</h1>
-        <button className="btn-primary" onClick={() => setModal(true)}><Plus size={16} /> Generate QR</button>
-      </div>
-      <div className="qrcode-grid">
-        {qrcodes.length === 0 && (
-          <div className="data-card glass" style={{ gridColumn: '1 / -1' }}>
-            <p className="empty-text">No QR codes yet. Generate one for a table.</p>
-          </div>
-        )}
-        {qrcodes.map(qr => (
-          <div key={qr.id} className="qrcode-card glass">
-            <div className="qrcode-header">
-              <QrCode size={24} />
-              <span>Table {getTableNumber(qr.tableId)}</span>
-            </div>
-            {qr.qrCodeUrl && (
-              <img src={qr.qrCodeUrl} alt={`QR for table ${getTableNumber(qr.tableId)}`} className="qrcode-image" />
-            )}
-            <div className="qrcode-actions">
-              <button className="btn-sm btn-primary" onClick={() => copyUrl(qr.qrCodeUrl)}><Copy size={13} /> Copy URL</button>
-              {qr.qrCodeUrl && (
-                <a href={qr.qrCodeUrl} download className="btn-sm btn-secondary" target="_blank"><Download size={13} /> Download</a>
-              )}
-              <button className="btn-action-icon btn-delete" onClick={() => handleDelete(qr.id)}><Trash2 size={15} /></button>
-            </div>
-          </div>
-        ))}
+        <h1><QrCode size={22} /> Restaurant QR Code</h1>
+        <div className="page-header-right">
+          {qrCode && (
+            <button className="btn-secondary" onClick={() => setPrintMode(true)}>
+              <Printer size={16} /> Print
+            </button>
+          )}
+          <button className="btn-primary" onClick={handleGenerate} disabled={generating || !menuUrl}>
+            <RefreshCw size={16} /> {qrCode ? 'Regenerate' : 'Generate QR Code'}
+          </button>
+        </div>
       </div>
 
-      {modal && (
-        <div className="modal-backdrop fade-in" onClick={() => setModal(false)}>
-          <div className="modal-content glass" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
-            <button className="modal-close" onClick={() => setModal(false)}><X size={18} /></button>
-            <div className="modal-body" style={{ paddingTop: '2rem' }}>
-              <h2 style={{ marginBottom: '1.25rem' }}>Generate QR Code</h2>
-              <form onSubmit={handleCreate} className="menu-item-form">
-                <div className="form-group"><label>Table</label><select value={tableId} onChange={e => setTableId(e.target.value)} required>
-                  <option value="">Select a table...</option>
-                  {tables.map(t => <option key={t.id} value={t.id}>Table {t.number} ({t.capacity} seats)</option>)}
-                </select></div>
-                <div className="edit-modal-actions">
-                  <button type="button" className="btn-secondary flex-1" onClick={() => setModal(false)}>Cancel</button>
-                  <button type="submit" className="btn-primary flex-1">Generate</button>
-                </div>
-              </form>
+      <div className="qrcode-grid" style={{ maxWidth: '480px' }}>
+        {!qrCode ? (
+          <div className="data-card glass" style={{ gridColumn: '1 / -1' }}>
+            <p className="empty-text">
+              No restaurant QR code yet. Generate one so customers can scan and view your menu.
+              Customers enter their table number at checkout — the QR identifies your restaurant only.
+            </p>
+            {menuUrl && (
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.75rem' }}>
+                Preview URL: <code>{menuUrl}</code>
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="qrcode-card glass">
+            <div className="qrcode-header">
+              <QrCode size={24} />
+              <span>{user?.tenantName || 'Restaurant Menu'}</span>
+            </div>
+            <img
+              src={QR_API(displayUrl, 220)}
+              alt="Restaurant menu QR code"
+              className="qrcode-image"
+            />
+            <div className="qrcode-destination">
+              <span className="qrcode-dest-label">Redirects to:</span>
+              <span className="qrcode-dest-url">{displayUrl}</span>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0 0 0.75rem' }}>
+              One QR code for your entire restaurant. Customers choose their table when ordering.
+            </p>
+            <div className="qrcode-actions">
+              <button className="btn-sm btn-primary" onClick={copyUrl}>
+                <Copy size={13} /> Copy URL
+              </button>
+              <a
+                href={QR_API(displayUrl, 400)}
+                download={`${slug || 'restaurant'}-menu-qr.png`}
+                className="btn-sm btn-secondary"
+              >
+                <Download size={13} /> Download
+              </a>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

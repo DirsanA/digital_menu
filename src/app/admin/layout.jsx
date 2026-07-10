@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -8,7 +8,7 @@ import {
   LayoutDashboard, ShoppingBag, ChefHat, Grid3X3, Users, FileText,
   Receipt, CalendarClock, QrCode, Settings, CreditCard, LogOut,
   Menu as MenuIcon, X, Store, DollarSign, Utensils, Building2,
-  BarChart3, Flag,
+  BarChart3, Flag, ClipboardList,
 } from 'lucide-react';
 
 const superAdminNav = [
@@ -31,13 +31,32 @@ const superAdminNav = [
   },
 ];
 
-const tenantNav = [
+const ownerNav = [
+  {
+    label: 'General',
+    items: [
+      { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/admin/qrcodes', label: 'QR Codes', icon: QrCode },
+      { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+      { href: '/admin/subscription', label: 'Subscription', icon: CreditCard },
+      { href: '/admin/users', label: 'Staff', icon: Users },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
+      { href: '/admin/settings', label: 'Settings', icon: Settings },
+    ],
+  },
+];
+
+const managerNav = [
   {
     label: 'Management',
     items: [
       { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
-      { href: '/admin/menu', label: 'Menu', icon: ChefHat },
+      { href: '/admin/menu', label: 'Menu', icon: ClipboardList },
       { href: '/admin/tables', label: 'Tables', icon: Grid3X3 },
       { href: '/admin/categories', label: 'Categories', icon: FileText },
     ],
@@ -46,27 +65,29 @@ const tenantNav = [
     label: 'Staff & Operations',
     items: [
       { href: '/admin/users', label: 'Staff', icon: Users },
-      { href: '/admin/schedules', label: 'Schedules', icon: CalendarClock },
+      { href: '/admin/qrcodes', label: 'QR Codes', icon: QrCode },
     ],
   },
   {
     label: 'Finance',
     items: [
-      { href: '/admin/reports', label: 'Reports', icon: DollarSign },
-      { href: '/admin/expenses', label: 'Expenses', icon: Receipt },
-      { href: '/admin/invoices', label: 'Invoices', icon: FileText },
-    ],
-  },
-  {
-    label: 'Tools',
-    items: [
-      { href: '/admin/qrcodes', label: 'QR Codes', icon: QrCode },
+      { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
     ],
   },
   {
     label: 'System',
     items: [
       { href: '/admin/settings', label: 'Settings', icon: Settings },
+    ],
+  },
+];
+
+const staffNav = [
+  {
+    label: 'General',
+    items: [
+      { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
     ],
   },
 ];
@@ -78,6 +99,15 @@ const roleBadgeColors = {
   cashier: 'badge-primary',
   waiter: 'badge-primary',
   kitchen_staff: 'badge-success',
+};
+
+const navConfig = {
+  super_admin: superAdminNav,
+  owner: ownerNav,
+  manager: managerNav,
+  cashier: staffNav,
+  waiter: staffNav,
+  kitchen_staff: staffNav,
 };
 
 export default function AdminLayout({ children }) {
@@ -100,28 +130,24 @@ export default function AdminLayout({ children }) {
     return null;
   }
 
-  const isSuperAdmin = user?.role === 'super_admin';
-  const navGroups = isSuperAdmin ? superAdminNav : tenantNav;
-
+  const navGroups = navConfig[user?.role] || managerNav;
   const isActive = (href) => pathname === href;
-
-  const currentPage = navGroups
-    .flatMap(g => g.items)
-    .find(i => isActive(i.href));
+  const currentPage = navGroups.flatMap(g => g.items).find(i => isActive(i.href));
+  const isSuperAdmin = user?.role === 'super_admin';
 
   return (
     <div className="admin-shell">
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
       <aside className={`admin-sidebar glass ${sidebarOpen ? 'open' : ''}`}>
-        <div className="sidebar-brand">
-          <div className="sidebar-logo">
-            <Utensils size={22} />
-          </div>
-          <span className="sidebar-brand-name">{isSuperAdmin ? 'Platform Admin' : 'Staff Portal'}</span>
-          <button className="sidebar-close-btn" onClick={() => setSidebarOpen(false)}>
-            <X size={18} />
-          </button>
+        <div className={`sidebar-brand ${!isSuperAdmin ? 'sidebar-brand-minimal' : ''}`}>
+          {isSuperAdmin && (
+            <>
+              <div className="sidebar-logo"><Building2 size={22} /></div>
+              <span className="sidebar-brand-name">Platform Admin</span>
+            </>
+          )}
+          <button className="sidebar-close-btn" onClick={() => setSidebarOpen(false)}><X size={18} /></button>
         </div>
 
         <div className="sidebar-user">
@@ -135,9 +161,7 @@ export default function AdminLayout({ children }) {
             </span>
           </div>
           {user?.tenantName && (
-            <div className="sidebar-user-tenant">
-              <Store size={12} /> {user.tenantName}
-            </div>
+            <div className="sidebar-user-tenant"><Store size={12} /> {user.tenantName}</div>
           )}
         </div>
 
@@ -169,20 +193,12 @@ export default function AdminLayout({ children }) {
 
       <div className="admin-content">
         <header className="admin-topbar glass">
-          <button className="sidebar-toggle-btn" onClick={() => setSidebarOpen(true)}>
-            <MenuIcon size={20} />
-          </button>
-          <div className="admin-topbar-title">
-            {currentPage?.label || 'Dashboard'}
-          </div>
+          <button className="sidebar-toggle-btn" onClick={() => setSidebarOpen(true)}><MenuIcon size={20} /></button>
+          <div className="admin-topbar-title">{currentPage?.label || 'Dashboard'}</div>
           <div className="admin-topbar-spacer" />
-          <Link href="/" className="admin-topbar-link">
-            <Utensils size={15} /> View Menu
-          </Link>
+          <Link href="/" className="admin-topbar-link"><Utensils size={15} /> View Menu</Link>
         </header>
-        <main className="admin-page-content">
-          {children}
-        </main>
+        <main className="admin-page-content">{children}</main>
       </div>
     </div>
   );

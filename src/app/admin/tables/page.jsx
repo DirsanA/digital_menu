@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
-import { Grid3X3, Plus, Edit, Trash2, X } from 'lucide-react';
+import { Grid3X3, Plus, Edit, Trash2 } from 'lucide-react';
+import AdminModal from '@/components/AdminModal';
 
 export default function TablesPage() {
   const [tables, setTables] = useState([]);
@@ -80,25 +81,22 @@ export default function TablesPage() {
         </div>
       </div>
 
-      {modal && (
-        <div className="modal-backdrop fade-in" onClick={() => setModal(false)}>
-          <div className="modal-content glass" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px' }}>
-            <button className="modal-close" onClick={() => setModal(false)}><X size={18} /></button>
-            <div className="modal-body" style={{ paddingTop: '2rem' }}>
-              <h2 style={{ marginBottom: '1.25rem' }}>{editing ? 'Edit Table' : 'Add Table'}</h2>
-              <form onSubmit={handleSave} className="menu-item-form">
-                <div className="form-group"><label>Table Number</label><input type="text" value={number} onChange={e => setNumber(e.target.value)} required placeholder="e.g. 5 or Bar-2" /></div>
-                <div className="form-group"><label>Capacity</label><input type="number" min={1} value={capacity} onChange={e => setCapacity(e.target.value)} required /></div>
-                <div className="form-group"><label>Location (optional)</label><input type="text" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Patio, Window, Bar" /></div>
-                <div className="edit-modal-actions">
-                  <button type="button" className="btn-secondary flex-1" onClick={() => setModal(false)}>Cancel</button>
-                  <button type="submit" className="btn-primary flex-1">{editing ? 'Save' : 'Create'}</button>
-                </div>
-              </form>
-            </div>
+      <AdminModal
+        open={modal}
+        onClose={() => setModal(false)}
+        title={editing ? 'Edit Table' : 'Add Table'}
+        maxWidth="440px"
+      >
+        <form onSubmit={handleSave} className="menu-item-form">
+          <div className="form-group"><label>Table Number</label><input type="text" value={number} onChange={e => setNumber(e.target.value)} required placeholder="e.g. 5 or Bar-2" /></div>
+          <div className="form-group"><label>Capacity</label><input type="number" min={1} value={capacity} onChange={e => setCapacity(e.target.value)} required /></div>
+          <div className="form-group"><label>Location (optional)</label><input type="text" value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. Patio, Window, Bar" /></div>
+          <div className="edit-modal-actions">
+            <button type="button" className="btn-secondary flex-1" onClick={() => setModal(false)}>Cancel</button>
+            <button type="submit" className="btn-primary flex-1">{editing ? 'Save' : 'Create'}</button>
           </div>
-        </div>
-      )}
+        </form>
+      </AdminModal>
     </div>
   );
 }

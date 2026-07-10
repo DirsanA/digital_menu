@@ -3,7 +3,23 @@ import { NotFoundError } from '@/lib/errors';
 
 export const tenantService = {
   async findAll() {
-    return prisma.tenant.findMany({ orderBy: { name: 'asc' } });
+    return prisma.tenant.findMany({
+      orderBy: { name: 'asc' },
+      include: {
+        _count: { select: { users: true, orders: true } },
+        users: {
+          where: { role: 'owner' },
+          take: 1,
+          select: {
+            id: true,
+            email: true,
+            displayName: true,
+            isActive: true,
+            lastLoginAt: true,
+          },
+        },
+      },
+    });
   },
 
   async findById(id) {

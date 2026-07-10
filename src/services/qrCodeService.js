@@ -2,6 +2,13 @@ import { prisma } from '@/lib/prisma';
 import { NotFoundError } from '@/lib/errors';
 
 export const qrCodeService = {
+  async findRestaurantQr(tenantId) {
+    return prisma.qrCode.findFirst({
+      where: { tenantId, tableId: null, isActive: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  },
+
   async findByTenant(tenantId) {
     return prisma.qrCode.findMany({
       where: { tenantId },
@@ -15,11 +22,29 @@ export const qrCodeService = {
     return qrCode;
   },
 
+  async upsertRestaurantQr(tenantId, { url, label }) {
+    const existing = await this.findRestaurantQr(tenantId);
+    if (existing) {
+      return prisma.qrCode.update({
+        where: { id: existing.id },
+        data: { url, label: label ?? existing.label },
+      });
+    }
+    return prisma.qrCode.create({
+      data: {
+        tenantId,
+        tableId: null,
+        url,
+        label: label ?? 'Restaurant Menu',
+      },
+    });
+  },
+
   async create(tenantId, data) {
     return prisma.qrCode.create({
       data: {
         tenantId,
-        tableId: data.tableId,
+        tableId: data.tableId ?? null,
         url: data.url,
         label: data.label,
       },

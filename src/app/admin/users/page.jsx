@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
-import { Users, Plus, Edit, Trash2, X, Store } from 'lucide-react';
+import { Users, Plus, Edit, Trash2 } from 'lucide-react';
+import AdminModal from '@/components/AdminModal';
 
 const roleOptions = ['owner', 'manager', 'cashier', 'waiter', 'kitchen_staff'];
 
@@ -104,27 +105,25 @@ export default function UsersPage() {
       </div>
 
       {modal && (
-        <div className="modal-backdrop fade-in" onClick={() => setModal(false)}>
-          <div className="modal-content glass" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }}>
-            <button className="modal-close" onClick={() => setModal(false)}><X size={18} /></button>
-            <div className="modal-body" style={{ paddingTop: '2rem' }}>
-              <h2 style={{ marginBottom: '1.25rem' }}>{editing ? 'Edit Staff' : 'Add Staff'}</h2>
-              <form onSubmit={handleSave} className="menu-item-form">
-                <div className="form-group"><label>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="staff@restaurant.com" /></div>
-                <div className="form-group"><label>Display Name</label><input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="e.g. John" /></div>
-                <div className="form-group"><label>{editing ? 'New Password (leave blank to keep)' : 'Password'}</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={editing ? 'Leave blank to keep current' : 'Enter password'} /></div>
-                <div className="form-group"><label>Role</label><select value={role} onChange={e => setRole(e.target.value)}>
-                  {roleOptions.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
-                </select></div>
-                {editing && <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Last login: {editing.lastLoginAt ? new Date(editing.lastLoginAt).toLocaleString() : 'Never'}</p>}
-                <div className="edit-modal-actions">
-                  <button type="button" className="btn-secondary flex-1" onClick={() => setModal(false)}>Cancel</button>
-                  <button type="submit" className="btn-primary flex-1">{editing ? 'Save' : 'Create'}</button>
-                </div>
-              </form>
+        <AdminModal
+          open={modal}
+          onClose={() => setModal(false)}
+          title={editing ? 'Edit Staff' : 'Add Staff'}
+        >
+          <form onSubmit={handleSave} className="menu-item-form">
+            <div className="form-group"><label>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="staff@restaurant.com" /></div>
+            <div className="form-group"><label>Display Name</label><input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="e.g. John" /></div>
+            <div className="form-group"><label>{editing ? 'New Password (leave blank to keep)' : 'Password'}</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={editing ? 'Leave blank to keep current' : 'Enter password'} /></div>
+            <div className="form-group"><label>Role</label><select value={role} onChange={e => setRole(e.target.value)}>
+              {roleOptions.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
+            </select></div>
+            {editing && <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Last login: {editing.lastLoginAt ? new Date(editing.lastLoginAt).toLocaleString() : 'Never'}</p>}
+            <div className="edit-modal-actions">
+              <button type="button" className="btn-secondary flex-1" onClick={() => setModal(false)}>Cancel</button>
+              <button type="submit" className="btn-primary flex-1">{editing ? 'Save' : 'Create'}</button>
             </div>
-          </div>
-        </div>
+          </form>
+        </AdminModal>
       )}
     </div>
   );
