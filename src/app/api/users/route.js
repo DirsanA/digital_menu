@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { userService } from '@/services/userService';
 import { authenticate, authorize, ROLES } from '@/lib/middleware';
 import { handleApiError } from '@/lib/errors';
+import { assertCanAssignStaffRole } from '@/lib/staffPermissions';
 
 export async function GET(request) {
   try {
@@ -17,8 +18,9 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.OWNER)(user);
+    authorize(ROLES.OWNER, ROLES.MANAGER)(user);
     const body = await request.json();
+    assertCanAssignStaffRole(user, body.role);
     const newUser = await userService.create(user.tenant_id, body);
     return NextResponse.json({ success: true, data: newUser }, { status: 201 });
   } catch (error) {
