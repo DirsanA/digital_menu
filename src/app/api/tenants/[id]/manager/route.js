@@ -10,8 +10,8 @@ export async function GET(request, { params }) {
     authorize(ROLES.SUPER_ADMIN)(user);
     const { id } = await params;
     await tenantService.findById(id);
-    const owner = await userService.findOwnerByTenant(id);
-    return NextResponse.json({ success: true, data: owner });
+    const manager = await userService.findPrimaryManagerByTenant(id);
+    return NextResponse.json({ success: true, data: manager });
   } catch (error) {
     return handleApiError(error);
   }
@@ -24,8 +24,8 @@ export async function POST(request, { params }) {
     const { id } = await params;
     await tenantService.findById(id);
     const body = await request.json();
-    const owner = await userService.createOwner(id, body);
-    return NextResponse.json({ success: true, data: owner }, { status: 201 });
+    const manager = await userService.createPrimaryManager(id, body);
+    return NextResponse.json({ success: true, data: manager }, { status: 201 });
   } catch (error) {
     return handleApiError(error);
   }
@@ -37,16 +37,16 @@ export async function PUT(request, { params }) {
     authorize(ROLES.SUPER_ADMIN)(user);
     const { id } = await params;
     await tenantService.findById(id);
-    const existingOwner = await userService.findOwnerByTenant(id);
-    if (!existingOwner) {
+    const existingManager = await userService.findPrimaryManagerByTenant(id);
+    if (!existingManager) {
       return NextResponse.json(
-        { success: false, message: 'No owner assigned to this restaurant' },
+        { success: false, message: 'No primary manager assigned to this restaurant' },
         { status: 404 }
       );
     }
     const body = await request.json();
-    const owner = await userService.update(existingOwner.id, body);
-    return NextResponse.json({ success: true, data: owner });
+    const manager = await userService.update(existingManager.id, body);
+    return NextResponse.json({ success: true, data: manager });
   } catch (error) {
     return handleApiError(error);
   }

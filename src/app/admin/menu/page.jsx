@@ -1,11 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import {
   Plus, Edit, Trash2, Eye, EyeOff, ChefHat, X,
   Upload, ImagePlus, Package, Search,
 } from 'lucide-react';
+import AdminModal from '@/components/AdminModal';
+import CategoryDropdown from '@/components/CategoryDropdown';
 
 const getImageUrl = (imagePath) => {
   if (!imagePath) return '/images/default_food.jpg';
@@ -60,6 +63,7 @@ function ImageUploadZone({ file, previewUrl, templateImage, onFileChange, onClea
 
 export default function MenuPage() {
   const [menu, setMenu] = useState([]);
+  const [dbCategories, setDbCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -67,7 +71,7 @@ export default function MenuPage() {
   // Create form
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
-  const [category, setCategory] = useState('Mains');
+  const [category, setCategory] = useState('');
   const [desc, setDesc] = useState('');
   const [tags, setTags] = useState('');
   const [image, setImage] = useState('/images/wagyu_burger.jpg');
@@ -80,29 +84,58 @@ export default function MenuPage() {
   const [editing, setEditing] = useState(null);
   const [eName, setEName] = useState('');
   const [ePrice, setEPrice] = useState('');
-  const [eCategory, setECategory] = useState('Mains');
+  const [eCategory, setECategory] = useState('');
   const [eDesc, setEDesc] = useState('');
   const [eTags, setETags] = useState('');
   const [eImage, setEImage] = useState('');
   const [eFile, setEFile] = useState(null);
   const [ePreviewUrl, setEPreviewUrl] = useState('');
 
-  useEffect(() => { fetchMenu(); }, []);
+  useEffect(() => { fetchData(); }, []);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState === 'visible') fetchData();
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, []);
   useEffect(() => { if (!file) { setPreviewUrl(''); return; } const url = URL.createObjectURL(file); setPreviewUrl(url); return () => URL.revokeObjectURL(url); }, [file]);
   useEffect(() => { if (!eFile) { setEPreviewUrl(''); return; } const url = URL.createObjectURL(eFile); setEPreviewUrl(url); return () => URL.revokeObjectURL(url); }, [eFile]);
 
-  const fetchMenu = async () => {
+  useEffect(() => {
+    if (!category && dbCategories.length > 0) {
+      setCategory(dbCategories[0].name);
+    }
+  }, [dbCategories, category]);
+
+  const fetchData = async () => {
     setLoading(true);
     try {
-      const data = await apiFetch('/menu');
-      if (data) setMenu(data);
+      const [menuData, categoryData] = await Promise.all([
+        apiFetch('/menu'),
+        apiFetch('/categories'),
+      ]);
+      if (menuData) setMenu(menuData);
+      if (categoryData) {
+        setDbCategories(categoryData);
+        if (categoryData.length > 0) {
+          setCategory((current) => current || categoryData[0].name);
+        }
+      }
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
 
+  const fetchMenu = fetchData;
+
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!name || !price) return;
+    if (!name || !price || !category) return;
     setSubmitting(true);
     try {
       const fd = new FormData();
@@ -110,7 +143,12 @@ export default function MenuPage() {
       fd.append('description', desc); fd.append('tags', tags); fd.append('available', 'true');
       if (file) fd.append('image', file); else fd.append('image', image);
       const data = await apiFetch('/menu', { method: 'POST', body: fd });
-      if (data) { setName(''); setPrice(''); setDesc(''); setTags(''); setCategory('Mains'); setFile(null); fetchMenu(); }
+      if (data) {
+        setName(''); setPrice(''); setDesc(''); setTags('');
+        setCategory(dbCategories[0]?.name || '');
+        setFile(null);
+        fetchMenu();
+      }
     } catch (err) { console.error(err); }
     finally { setSubmitting(false); }
   };
@@ -149,7 +187,10 @@ export default function MenuPage() {
     catch (err) { console.error(err); }
   };
 
-  const categories = ['All', ...new Set(menu.map(m => m.category))];
+  const categories = ['All', ...new Set([
+    ...dbCategories.map(c => c.name),
+    ...menu.map(m => m.category),
+  ])];
   const filtered = menu.filter(item => {
     const matchCat = selectedCategory === 'All' || item.category === selectedCategory;
     const matchSearch = !searchQuery || item.name.toLowerCase().includes(searchQuery.toLowerCase()) || item.description?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -175,14 +216,14 @@ export default function MenuPage() {
                 <input id="price" type="number" step="0.01" placeholder="15.50" value={price} onChange={e => setPrice(e.target.value)} required />
               </div>
             </div>
-            <div className="form-group">
+            <div className="form-group menu-category-field">
               <label htmlFor="category">Category</label>
-              <select id="category" value={category} onChange={e => setCategory(e.target.value)}>
-                <option value="Starters">Starters</option>
-                <option value="Mains">Mains</option>
-                <option value="Desserts">Desserts</option>
-                <option value="Drinks">Drinks</option>
-              </select>
+              <CategoryDropdown
+                id="category"
+                value={category}
+                onChange={setCategory}
+                categories={dbCategories}
+              />
             </div>
             <div className="form-group">
               <label htmlFor="tags">Dietary Tags (comma separated)</label>
@@ -192,7 +233,7 @@ export default function MenuPage() {
               <label htmlFor="desc">Description</label>
               <textarea id="desc" rows="3" placeholder="Describe flavors, ingredients, allergens…" value={desc} onChange={e => setDesc(e.target.value)} />
             </div>
-            <button type="submit" className="btn-primary w-full" disabled={submitting}>
+            <button type="submit" className="btn-primary w-full" disabled={submitting || dbCategories.length === 0 || !category}>
               {submitting ? 'Adding…' : <><Plus size={16} /> Add to Menu</>}
             </button>
           </form>
@@ -234,38 +275,41 @@ export default function MenuPage() {
         </div>
       </div>
 
-      {editModal && editing && (
-        <div className="modal-backdrop fade-in" onClick={() => setEditModal(false)}>
-          <div className="modal-content glass edit-modal" onClick={e => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setEditModal(false)}><X size={18} /></button>
-            <div className="modal-body" style={{ paddingTop: '2.5rem', overflowY: 'auto' }}>
-              <h2 className="edit-modal-title"><Edit size={18} /> Edit Menu Item</h2>
-              <form onSubmit={handleUpdate} className="menu-item-form">
-                <ImageUploadZone file={eFile} previewUrl={ePreviewUrl}
-                  templateImage={eImage.startsWith('/uploads') ? '/images/wagyu_burger.jpg' : eImage}
-                  inputId="edit-image" onFileChange={setEFile} onClearFile={() => { setEFile(null); }}
-                  onTemplateChange={(val) => { setEImage(val); setEFile(null); }} />
-                <div className="form-group-row">
-                  <div className="form-group flex-2"><label>Name</label><input type="text" value={eName} onChange={e => setEName(e.target.value)} required /></div>
-                  <div className="form-group" style={{ minWidth: '90px', flex: 1 }}><label>Price ($)</label><input type="number" step="0.01" value={ePrice} onChange={e => setEPrice(e.target.value)} required /></div>
-                </div>
-                <div className="form-group"><label>Category</label><select value={eCategory} onChange={e => setECategory(e.target.value)}>
-                  <option value="Starters">Starters</option>
-                  <option value="Mains">Mains</option>
-                  <option value="Desserts">Desserts</option>
-                  <option value="Drinks">Drinks</option>
-                </select></div>
-                <div className="form-group"><label>Tags</label><input type="text" value={eTags} onChange={e => setETags(e.target.value)} /></div>
-                <div className="form-group"><label>Description</label><textarea rows="3" value={eDesc} onChange={e => setEDesc(e.target.value)} /></div>
-                <div className="edit-modal-actions">
-                  <button type="button" className="btn-secondary flex-1" onClick={() => setEditModal(false)}>Cancel</button>
-                  <button type="submit" className="btn-primary flex-1">Save Changes</button>
-                </div>
-              </form>
+      <AdminModal
+        open={editModal && !!editing}
+        onClose={() => { setEditModal(false); setEditing(null); }}
+        title="Edit Menu Item"
+        maxWidth="520px"
+      >
+        {editing && (
+          <form onSubmit={handleUpdate} className="menu-item-form">
+            <ImageUploadZone file={eFile} previewUrl={ePreviewUrl}
+              templateImage={eImage.startsWith('/uploads') ? '/images/wagyu_burger.jpg' : eImage}
+              inputId="edit-image" onFileChange={setEFile} onClearFile={() => { setEFile(null); }}
+              onTemplateChange={(val) => { setEImage(val); setEFile(null); }} />
+            <div className="form-group-row">
+              <div className="form-group flex-2"><label>Name</label><input type="text" value={eName} onChange={e => setEName(e.target.value)} required /></div>
+              <div className="form-group" style={{ minWidth: '90px', flex: 1 }}><label>Price ($)</label><input type="number" step="0.01" value={ePrice} onChange={e => setEPrice(e.target.value)} required /></div>
             </div>
-          </div>
-        </div>
-      )}
+            <div className="form-group menu-category-field">
+              <label>Category</label>
+              <CategoryDropdown
+                value={eCategory}
+                onChange={setECategory}
+                categories={dbCategories}
+                legacyValue={editing.category}
+                emptyMessage={<>No categories available. <Link href="/admin/categories">Manage categories</Link>.</>}
+              />
+            </div>
+            <div className="form-group"><label>Tags</label><input type="text" value={eTags} onChange={e => setETags(e.target.value)} /></div>
+            <div className="form-group"><label>Description</label><textarea rows="3" value={eDesc} onChange={e => setEDesc(e.target.value)} /></div>
+            <div className="edit-modal-actions">
+              <button type="button" className="btn-secondary flex-1" onClick={() => { setEditModal(false); setEditing(null); }}>Cancel</button>
+              <button type="submit" className="btn-primary flex-1" disabled={dbCategories.length === 0 || !eCategory}>Save Changes</button>
+            </div>
+          </form>
+        )}
+      </AdminModal>
     </div>
   );
 }

@@ -32,7 +32,6 @@ export function authorize(...allowedRoles) {
 
 export const ROLES = {
   SUPER_ADMIN: 'super_admin',
-  OWNER: 'owner',
   MANAGER: 'manager',
   CASHIER: 'cashier',
   WAITER: 'waiter',

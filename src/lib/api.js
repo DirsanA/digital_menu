@@ -16,6 +16,20 @@ export async function apiFetch(endpoint, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  if (typeof window !== 'undefined') {
+    const savedUser = localStorage.getItem('user');
+    if (savedUser) {
+      try {
+        const user = JSON.parse(savedUser);
+        if (user.tenantSlug) {
+          headers['x-tenant-slug'] = user.tenantSlug;
+        }
+      } catch {
+        // ignore invalid cached user
+      }
+    }
+  }
+
   if (!(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }

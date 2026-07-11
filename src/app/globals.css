@@ -1890,6 +1890,148 @@ body::after {
   color: var(--text-primary);
 }
 
+.menu-item-form .form-group {
+  min-width: 0;
+  width: 100%;
+}
+
+.menu-category-field {
+  position: relative;
+  z-index: 3;
+}
+
+/* Category dropdown (menu form) */
+.category-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.category-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  min-height: 48px;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-glass);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.category-dropdown-trigger:hover,
+.category-dropdown.open .category-dropdown-trigger {
+  border-color: var(--primary);
+  background: rgba(99, 102, 241, 0.06);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.category-dropdown-value.placeholder {
+  color: var(--text-muted);
+}
+
+.category-dropdown-chevron {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: transform var(--transition-fast);
+}
+
+.category-dropdown.open .category-dropdown-chevron {
+  transform: rotate(180deg);
+  color: var(--primary-light);
+}
+
+.category-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  animation: fadeInUp 0.18s ease-out;
+  background: rgba(8, 10, 22, 0.94);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.category-dropdown-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.35rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.category-dropdown-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.category-dropdown-option:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.category-dropdown-option.selected {
+  background: rgba(99, 102, 241, 0.14);
+  color: var(--primary-light);
+  font-weight: 600;
+}
+
+.category-dropdown-footer {
+  display: block;
+  padding: 0.65rem 1rem;
+  border-top: 1px solid var(--border-glass);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--primary-light);
+  text-decoration: none;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.category-dropdown-footer:hover {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+.category-dropdown-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+}
+
+.catalog-filter,
+.upload-template-select {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+
 .form-group textarea { resize: vertical; }
 
 /* Catalog */
@@ -2832,6 +2974,38 @@ body::after {
     gap: 1.25rem;
   }
 
+  .item-form-card,
+  .catalog-list-card {
+    overflow: visible;
+  }
+
+  .menu-item-form .form-group select,
+  .catalog-filter,
+  .upload-template-select {
+    appearance: auto;
+    -webkit-appearance: menulist;
+    font-size: 16px;
+    min-height: 48px;
+  }
+
+  .category-dropdown-trigger {
+    font-size: 16px;
+    min-height: 48px;
+  }
+
+  .category-dropdown-list {
+    max-height: min(240px, 45vh);
+  }
+
+  .catalog-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .catalog-filter {
+    width: 100%;
+  }
+
   /* Upload zone on mobile */
   .upload-preview-img-wrap { height: 155px; }
 
@@ -2892,6 +3066,19 @@ body::after {
   /* Form rows stack */
   .form-group-row { flex-direction: column; }
   .edit-modal-actions { flex-direction: column; }
+
+  .item-form-card,
+  .catalog-list-card {
+    overflow: visible;
+  }
+
+  .menu-item-form .form-group input,
+  .menu-item-form .form-group select,
+  .menu-item-form .form-group textarea,
+  .catalog-filter {
+    font-size: 16px;
+    min-height: 48px;
+  }
 
   /* Upload zone */
   .upload-drop-zone { min-height: 135px; }

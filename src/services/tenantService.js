@@ -8,7 +8,8 @@ export const tenantService = {
       include: {
         _count: { select: { users: true, orders: true } },
         users: {
-          where: { role: 'owner' },
+          where: { role: 'manager' },
+          orderBy: { createdAt: 'asc' },
           take: 1,
           select: {
             id: true,

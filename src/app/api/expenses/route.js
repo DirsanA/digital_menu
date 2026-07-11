@@ -6,7 +6,7 @@ import { handleApiError } from '@/lib/errors';
 export async function GET(request) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.OWNER, ROLES.MANAGER)(user);
+    authorize(ROLES.MANAGER)(user);
     const { searchParams } = new URL(request.url);
     const filters = {};
     if (searchParams.get('category')) filters.category = searchParams.get('category');
@@ -23,7 +23,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.OWNER, ROLES.MANAGER)(user);
+    authorize(ROLES.MANAGER)(user);
     const body = await request.json();
     const expense = await expenseService.create(user.tenant_id, {
       ...body,

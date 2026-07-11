@@ -6,7 +6,7 @@ import { handleApiError } from '@/lib/errors';
 export async function GET(request) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.OWNER, ROLES.MANAGER)(user);
+    authorize(ROLES.MANAGER)(user);
     const { searchParams } = new URL(request.url);
     const filters = {};
     if (searchParams.get('userId')) filters.userId = searchParams.get('userId');
@@ -22,7 +22,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.OWNER, ROLES.MANAGER)(user);
+    authorize(ROLES.MANAGER)(user);
     const body = await request.json();
     const schedule = await staffScheduleService.create(user.tenant_id, body);
     return NextResponse.json({ success: true, data: schedule }, { status: 201 });

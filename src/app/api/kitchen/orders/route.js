@@ -7,7 +7,7 @@ import { handleApiError } from '@/lib/errors';
 export async function GET(request) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.KITCHEN_STAFF, ROLES.MANAGER, ROLES.OWNER)(user);
+    authorize(ROLES.KITCHEN_STAFF, ROLES.MANAGER)(user);
     const { searchParams } = new URL(request.url);
     const filters = { status: searchParams.get('status') || undefined };
 
