@@ -7,7 +7,10 @@ export const orderService = {
   async findByTenant(tenantId, filters = {}) {
     const where = { tenantId };
     if (filters.status) where.status = filters.status;
-    if (filters.tableNumber) where.tableNumber = filters.tableNumber;
+    if (filters.tableNumber) {
+      const tableNumber = parseInt(filters.tableNumber, 10);
+      if (Number.isInteger(tableNumber)) where.tableNumber = tableNumber;
+    }
 
     return prisma.order.findMany({
       where,
@@ -22,9 +25,10 @@ export const orderService = {
   },
 
   async create(tenantId, data) {
-    const { tableNumber, items, notes } = data;
+    const { items, notes } = data;
+    const tableNumber = parseInt(data.tableNumber, 10);
 
-    if (!tableNumber || !items?.length) {
+    if (!Number.isInteger(tableNumber) || tableNumber < 1 || !items?.length) {
       throw new ValidationError('tableNumber and items are required');
     }
 
