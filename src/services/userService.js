@@ -11,6 +11,31 @@ export const userService = {
     });
   },
 
+  async findOwnerByTenant(tenantId) {
+    return prisma.user.findFirst({
+      where: { tenantId, role: 'owner' },
+      select: { id: true, email: true, displayName: true, role: true, isActive: true, createdAt: true, lastLoginAt: true },
+    });
+  },
+
+  async createOwner(tenantId, data) {
+    const existingOwner = await this.findOwnerByTenant(tenantId);
+    if (existingOwner) {
+      throw new ValidationError('This restaurant already has an owner. Edit the existing owner instead.');
+    }
+    if (!data.email || !data.password) {
+      throw new ValidationError('Email and password are required');
+    }
+    return this.create(tenantId, { ...data, role: 'owner' });
+  },
+
+  async findAll() {
+    return prisma.user.findMany({
+      orderBy: { displayName: 'asc' },
+      select: { id: true, email: true, displayName: true, role: true, isActive: true, tenantId: true, createdAt: true },
+    });
+  },
+
   async findById(id) {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundError('User');
@@ -18,25 +43,27 @@ export const userService = {
   },
 
   async findByEmail(tenantId, email) {
-    return prisma.user.findUnique({
-      where: { tenantId_email: { tenantId, email } },
+    return prisma.user.findFirst({
+      where: { tenantId, email },
     });
   },
 
   async create(tenantId, data) {
-    const existing = await this.findByEmail(tenantId, data.email);
+    const existing = tenantId
+      ? await this.findByEmail(tenantId, data.email)
+      : await prisma.user.findUnique({ where: { email: data.email } });
     if (existing) throw new ValidationError('Email already in use');
 
     const passwordHash = await bcrypt.hash(data.password, 12);
     return prisma.user.create({
       data: {
-        tenantId,
+        tenantId: tenantId || null,
         email: data.email,
         passwordHash,
         displayName: data.displayName,
-        role: data.role || 'server',
+        role: data.role,
       },
-      select: { id: true, email: true, displayName: true, role: true, isActive: true, createdAt: true },
+      select: { id: true, email: true, displayName: true, role: true, isActive: true, tenantId: true, createdAt: true },
     });
   },
 
@@ -53,7 +80,7 @@ export const userService = {
     return prisma.user.update({
       where: { id },
       data: updateData,
-      select: { id: true, email: true, displayName: true, role: true, isActive: true, createdAt: true },
+      select: { id: true, email: true, displayName: true, role: true, isActive: true, tenantId: true, createdAt: true },
     });
   },
 

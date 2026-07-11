@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { menuService } from '@/services/menuService';
 import { resolveTenant, transformMenuItem } from '@/lib/tenant';
+import { authenticate, authorize, ROLES } from '@/lib/middleware';
 import { uploadImage } from '@/lib/cloudinary';
 import { handleApiError } from '@/lib/errors';
 
@@ -16,6 +17,8 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    const user = await authenticate(request);
+    authorize(ROLES.MANAGER, ROLES.OWNER)(user);
     const tenant = await resolveTenant(request);
     const contentType = request.headers.get('content-type') || '';
 

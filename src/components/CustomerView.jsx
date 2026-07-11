@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useSocket } from '@/context/SocketContext';
 import {
@@ -18,13 +19,21 @@ const getImageUrl = (imagePath) => {
 };
 
 export default function CustomerView() {
+  const searchParams = useSearchParams();
+  const slugParam = searchParams.get('slug');
+
   const {
     menu, menuLoading, menuError,
     cart, addToCart, removeFromCart, updateQuantity, cartTotal, cartCount,
-    submitOrder, activeOrder, setActiveOrder, checkActiveOrderStatus
+    submitOrder, activeOrder, setActiveOrder, checkActiveOrderStatus,
+    setTenantSlug,
   } = useCart();
 
   const { connected } = useSocket();
+
+  useEffect(() => {
+    if (slugParam) setTenantSlug(slugParam);
+  }, [slugParam, setTenantSlug]);
 
   const [tableNumber, setTableNumber] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');

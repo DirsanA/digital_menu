@@ -1,17 +1,19 @@
 import { NextResponse } from 'next/server';
 import { orderService } from '@/services/orderService';
 import { resolveTenant, transformOrder } from '@/lib/tenant';
+import { authenticate, authorize, ROLES } from '@/lib/middleware';
 import { handleApiError } from '@/lib/errors';
 
 export async function GET(request) {
   try {
-    const tenant = await resolveTenant(request);
+    const user = await authenticate(request);
+    authorize(ROLES.OWNER, ROLES.MANAGER, ROLES.CASHIER, ROLES.WAITER, ROLES.KITCHEN_STAFF)(user);
     const { searchParams } = new URL(request.url);
     const filters = {};
     if (searchParams.get('status')) filters.status = searchParams.get('status');
     if (searchParams.get('tableNumber')) filters.tableNumber = parseInt(searchParams.get('tableNumber'));
 
-    const orders = await orderService.findByTenant(tenant.id, filters);
+    const orders = await orderService.findByTenant(user.tenant_id, filters);
     return NextResponse.json({ success: true, data: orders.map(transformOrder) });
   } catch (error) {
     return handleApiError(error);

@@ -13,7 +13,6 @@ export function getTokenFromRequest(request) {
 export async function authenticate(request) {
   const token = getTokenFromRequest(request);
   if (!token) throw new UnauthorizedError('Missing authentication token');
-
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     return decoded;
@@ -32,8 +31,10 @@ export function authorize(...allowedRoles) {
 }
 
 export const ROLES = {
-  ADMIN: 'admin',
+  SUPER_ADMIN: 'super_admin',
+  OWNER: 'owner',
   MANAGER: 'manager',
-  KITCHEN: 'kitchen',
-  SERVER: 'server',
+  CASHIER: 'cashier',
+  WAITER: 'waiter',
+  KITCHEN_STAFF: 'kitchen_staff',
 };

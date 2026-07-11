@@ -6,7 +6,7 @@ import { handleApiError } from '@/lib/errors';
 export async function GET(request, { params }) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.ADMIN)(user);
+    authorize(ROLES.SUPER_ADMIN)(user);
     const { id } = await params;
     const tenant = await tenantService.findById(id);
     return NextResponse.json({ success: true, data: tenant });
@@ -18,7 +18,7 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.ADMIN)(user);
+    authorize(ROLES.SUPER_ADMIN)(user);
     const { id } = await params;
     const body = await request.json();
     const tenant = await tenantService.update(id, body);
@@ -31,7 +31,7 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.ADMIN)(user);
+    authorize(ROLES.SUPER_ADMIN)(user);
     const { id } = await params;
     await tenantService.delete(id);
     return NextResponse.json({ success: true, message: 'Tenant deleted' });
