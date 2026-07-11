@@ -11,22 +11,23 @@ export const userService = {
     });
   },
 
-  async findOwnerByTenant(tenantId) {
+  async findPrimaryManagerByTenant(tenantId) {
     return prisma.user.findFirst({
-      where: { tenantId, role: 'owner' },
+      where: { tenantId, role: 'manager' },
+      orderBy: { createdAt: 'asc' },
       select: { id: true, email: true, displayName: true, role: true, isActive: true, createdAt: true, lastLoginAt: true },
     });
   },
 
-  async createOwner(tenantId, data) {
-    const existingOwner = await this.findOwnerByTenant(tenantId);
-    if (existingOwner) {
-      throw new ValidationError('This restaurant already has an owner. Edit the existing owner instead.');
+  async createPrimaryManager(tenantId, data) {
+    const existingManager = await this.findPrimaryManagerByTenant(tenantId);
+    if (existingManager) {
+      throw new ValidationError('This restaurant already has a primary manager. Edit the existing manager instead.');
     }
     if (!data.email || !data.password) {
       throw new ValidationError('Email and password are required');
     }
-    return this.create(tenantId, { ...data, role: 'owner' });
+    return this.create(tenantId, { ...data, role: 'manager' });
   },
 
   async findAll() {

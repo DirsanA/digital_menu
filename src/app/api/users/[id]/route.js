@@ -11,7 +11,7 @@ import {
 export async function GET(request, { params }) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.OWNER, ROLES.MANAGER)(user);
+    authorize(ROLES.MANAGER)(user);
     const { id } = await params;
     const staff = await userService.findById(id);
 
@@ -29,7 +29,7 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.OWNER, ROLES.MANAGER)(user);
+    authorize(ROLES.MANAGER)(user);
     const { id } = await params;
     const body = await request.json();
     const staff = await userService.findById(id);
@@ -51,7 +51,7 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.OWNER, ROLES.MANAGER)(user);
+    authorize(ROLES.MANAGER)(user);
     const { id } = await params;
     const staff = await userService.findById(id);
 

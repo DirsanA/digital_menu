@@ -7,7 +7,7 @@ import { assertCanAssignStaffRole } from '@/lib/staffPermissions';
 export async function GET(request) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.OWNER, ROLES.MANAGER)(user);
+    authorize(ROLES.MANAGER)(user);
     const users = await userService.findByTenant(user.tenant_id);
     return NextResponse.json({ success: true, data: users });
   } catch (error) {
@@ -18,7 +18,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.OWNER, ROLES.MANAGER)(user);
+    authorize(ROLES.MANAGER)(user);
     const body = await request.json();
     assertCanAssignStaffRole(user, body.role);
     const newUser = await userService.create(user.tenant_id, body);

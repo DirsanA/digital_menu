@@ -10,7 +10,7 @@ import {
   ArrowUp, ArrowDown, Clock, ChefHat, CheckCircle2, AlertCircle,
 } from 'lucide-react';
 
-function TenantDashboard() {
+function ManagerDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [recentOrders, setRecentOrders] = useState([]);
@@ -194,7 +194,7 @@ export default function DashboardPage() {
   const { isSuperAdmin } = useAuth();
   return (
     <div className="dashboard-page fade-in">
-      {isSuperAdmin ? <SuperAdminDashboard /> : <TenantDashboard />}
+      {isSuperAdmin ? <SuperAdminDashboard /> : <ManagerDashboard />}
     </div>
   );
 }

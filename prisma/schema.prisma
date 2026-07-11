@@ -9,7 +9,6 @@ datasource db {
 
 enum UserRole {
   super_admin
-  owner
   manager
   cashier
   waiter

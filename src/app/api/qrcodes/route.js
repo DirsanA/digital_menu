@@ -6,7 +6,7 @@ import { handleApiError, ValidationError } from '@/lib/errors';
 export async function GET(request) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.OWNER)(user);
+    authorize(ROLES.MANAGER)(user);
     const qrCode = await qrCodeService.findRestaurantQr(user.tenant_id);
     return NextResponse.json({ success: true, data: qrCode });
   } catch (error) {
@@ -17,7 +17,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.OWNER)(user);
+    authorize(ROLES.MANAGER)(user);
     const body = await request.json();
 
     if (body.tableId) {

@@ -8,7 +8,7 @@ import { handleApiError } from '@/lib/errors';
 export async function PUT(request, { params }) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.MANAGER, ROLES.OWNER)(user);
+    authorize(ROLES.MANAGER)(user);
     const { id } = await params;
     const tenant = await resolveTenant(request);
     const contentType = request.headers.get('content-type') || '';
@@ -55,7 +55,7 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.MANAGER, ROLES.OWNER)(user);
+    authorize(ROLES.MANAGER)(user);
     const { id } = await params;
     const tenant = await resolveTenant(request);
     await menuService.delete(id, tenant.id);

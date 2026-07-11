@@ -17,7 +17,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.MANAGER, ROLES.OWNER)(user);
+    authorize(ROLES.MANAGER)(user);
     const body = await request.json();
     const category = await categoryService.create(user.tenant_id, body);
     return NextResponse.json({ success: true, data: category }, { status: 201 });

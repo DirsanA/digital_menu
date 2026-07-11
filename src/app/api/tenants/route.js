@@ -20,11 +20,11 @@ export async function POST(request) {
     const user = await authenticate(request);
     authorize(ROLES.SUPER_ADMIN)(user);
     const body = await request.json();
-    const { owner, ...tenantData } = body;
+    const { manager, ...tenantData } = body;
     const tenant = await tenantService.create(tenantData);
 
-    if (owner?.email && owner?.password) {
-      await userService.createOwner(tenant.id, owner);
+    if (manager?.email && manager?.password) {
+      await userService.createPrimaryManager(tenant.id, manager);
     }
 
     const tenants = await tenantService.findAll();

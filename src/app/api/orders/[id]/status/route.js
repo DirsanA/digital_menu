@@ -7,7 +7,7 @@ import { handleApiError } from '@/lib/errors';
 export async function PUT(request, { params }) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.OWNER, ROLES.MANAGER, ROLES.WAITER, ROLES.KITCHEN_STAFF)(user);
+    authorize(ROLES.MANAGER, ROLES.WAITER, ROLES.KITCHEN_STAFF)(user);
     const { id } = await params;
     const tenant = await resolveTenant(request);
     const { status } = await request.json();

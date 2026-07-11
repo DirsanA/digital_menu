@@ -31,41 +31,17 @@ const superAdminNav = [
   },
 ];
 
-const ownerNav = [
-  {
-    label: 'General',
-    items: [
-      { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/admin/qrcodes', label: 'QR Codes', icon: QrCode },
-      { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
-      { href: '/admin/subscription', label: 'Subscription', icon: CreditCard },
-      { href: '/admin/users', label: 'Staff', icon: Users },
-    ],
-  },
-  {
-    label: 'System',
-    items: [
-      { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
-      { href: '/admin/settings', label: 'Settings', icon: Settings },
-    ],
-  },
-];
-
 const managerNav = [
   {
-    label: 'Management',
+    label: 'General',
     items: [
       { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/admin/menu', label: 'Menu', icon: ClipboardList },
       { href: '/admin/tables', label: 'Tables', icon: Grid3X3 },
       { href: '/admin/categories', label: 'Categories', icon: FileText },
-    ],
-  },
-  {
-    label: 'Staff & Operations',
-    items: [
-      { href: '/admin/users', label: 'Staff', icon: Users },
       { href: '/admin/qrcodes', label: 'QR Codes', icon: QrCode },
+      { href: '/admin/subscription', label: 'Subscription', icon: CreditCard },
+      { href: '/admin/users', label: 'Staff', icon: Users },
     ],
   },
   {
@@ -94,8 +70,7 @@ const staffNav = [
 
 const roleBadgeColors = {
   super_admin: 'badge-danger',
-  owner: 'badge-accent',
-  manager: 'badge-primary',
+  manager: 'badge-accent',
   cashier: 'badge-primary',
   waiter: 'badge-primary',
   kitchen_staff: 'badge-success',
@@ -103,7 +78,6 @@ const roleBadgeColors = {
 
 const navConfig = {
   super_admin: superAdminNav,
-  owner: ownerNav,
   manager: managerNav,
   cashier: staffNav,
   waiter: staffNav,

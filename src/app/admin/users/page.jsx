@@ -66,7 +66,7 @@ export default function UsersPage() {
   };
 
   const handleDelete = async (u) => {
-    if (!canManageStaff(currentUser, u) || u.role === 'owner') return;
+    if (!canManageStaff(currentUser, u)) return;
     if (!confirm('Delete this user?')) return;
     try { await apiFetch(`/users/${u.id}`, { method: 'DELETE' }); fetchUsers(); }
     catch (err) { console.error(err); alert(err.message); }
@@ -111,9 +111,7 @@ export default function UsersPage() {
                     {manageable ? (
                       <>
                         <button className="btn-action-icon btn-edit" onClick={() => openEdit(u)} title="Edit staff"><Edit size={16} /></button>
-                        {u.role !== 'owner' && (
-                          <button className="btn-action-icon btn-delete" onClick={() => handleDelete(u)} title="Delete staff"><Trash2 size={16} /></button>
-                        )}
+                        <button className="btn-action-icon btn-delete" onClick={() => handleDelete(u)} title="Delete staff"><Trash2 size={16} /></button>
                         <button
                           className={`btn-action-icon ${u.isActive ? 'btn-visible' : 'btn-hidden'}`}
                           onClick={() => toggleActive(u)}

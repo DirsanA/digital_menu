@@ -63,14 +63,13 @@ export function AuthProvider({ children }) {
 
   const isAuthenticated = !!user;
   const isSuperAdmin = user?.role === 'super_admin';
-  const isOwner = user?.role === 'owner';
   const isManager = user?.role === 'manager';
-  const canManage = isSuperAdmin || isOwner || isManager;
+  const canManage = isSuperAdmin || isManager;
 
   return (
     <AuthContext.Provider value={{
       user, loading, isAuthenticated, login, logout,
-      isSuperAdmin, isOwner, isManager, canManage,
+      isSuperAdmin, isManager, canManage,
     }}>
       {children}
     </AuthContext.Provider>

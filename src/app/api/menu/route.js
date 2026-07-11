@@ -18,7 +18,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.MANAGER, ROLES.OWNER)(user);
+    authorize(ROLES.MANAGER)(user);
     const tenant = await resolveTenant(request);
     const contentType = request.headers.get('content-type') || '';
 
