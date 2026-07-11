@@ -6,7 +6,7 @@ import { handleApiError } from '@/lib/errors';
 export async function PUT(request, { params }) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.OWNER)(user);
+    authorize(ROLES.MANAGER)(user);
     const { id } = await params;
     const body = await request.json();
     const qrCode = await qrCodeService.update(id, user.tenant_id, body);
@@ -19,7 +19,7 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const user = await authenticate(request);
-    authorize(ROLES.OWNER)(user);
+    authorize(ROLES.MANAGER)(user);
     const { id } = await params;
     await qrCodeService.delete(id, user.tenant_id);
     return NextResponse.json({ success: true, message: 'QR code deleted' });

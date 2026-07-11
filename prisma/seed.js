@@ -133,8 +133,8 @@ async function main() {
 
   // ── Users for Bistro Noir (one of each role) ──────────────────────────────
   const users1 = [
-    { email: 'owner@bistronoir.com', displayName: 'Mr. Daniel', role: 'owner' },
-    { email: 'manager@bistronoir.com', displayName: 'Sarah Johnson', role: 'manager' },
+    { email: 'manager@bistronoir.com', displayName: 'Mr. Daniel', role: 'manager' },
+    { email: 'manager2@bistronoir.com', displayName: 'Sarah Johnson', role: 'manager' },
     { email: 'cashier@bistronoir.com', displayName: 'Mike Chen', role: 'cashier' },
     { email: 'waiter@bistronoir.com', displayName: 'Emma Wilson', role: 'waiter' },
     { email: 'kitchen@bistronoir.com', displayName: 'Chef Marco', role: 'kitchen_staff' },
@@ -155,12 +155,12 @@ async function main() {
       },
     });
   }
-  console.log('  ✓ Bistro Noir users: owner, manager, cashier, waiter, kitchen_staff');
+  console.log('  ✓ Bistro Noir users: manager, cashier, waiter, kitchen_staff');
 
   // ── Users for Cafe Aroma (subset of roles) ────────────────────────────────
   const users2 = [
-    { email: 'owner@cafearoma.com', displayName: 'Elena Rodriguez', role: 'owner' },
-    { email: 'manager@cafearoma.com', displayName: 'James Kim', role: 'manager' },
+    { email: 'manager@cafearoma.com', displayName: 'Elena Rodriguez', role: 'manager' },
+    { email: 'manager2@cafearoma.com', displayName: 'James Kim', role: 'manager' },
     { email: 'cashier@cafearoma.com', displayName: 'Priya Sharma', role: 'cashier' },
     { email: 'waiter@cafearoma.com', displayName: 'Alex Turner', role: 'waiter' },
     { email: 'kitchen@cafearoma.com', displayName: 'Baker Sam', role: 'kitchen_staff' },
@@ -179,7 +179,7 @@ async function main() {
       },
     });
   }
-  console.log('  ✓ Cafe Aroma users: owner, manager, cashier, waiter, kitchen_staff');
+  console.log('  ✓ Cafe Aroma users: manager, cashier, waiter, kitchen_staff');
 
   // ── Categories (Bistro Noir) ───────────────────────────────────────────────
   const categories1 = ['Starters', 'Mains', 'Desserts', 'Drinks'];

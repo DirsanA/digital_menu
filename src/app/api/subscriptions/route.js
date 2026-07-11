@@ -10,7 +10,7 @@ export async function GET(request) {
       const subscriptions = await subscriptionService.findAll();
       return NextResponse.json({ success: true, data: subscriptions });
     }
-    authorize(ROLES.OWNER)(user);
+    authorize(ROLES.MANAGER)(user);
     const subscription = await subscriptionService.findByTenant(user.tenant_id);
     return NextResponse.json({ success: true, data: subscription });
   } catch (error) {
