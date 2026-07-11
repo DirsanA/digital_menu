@@ -8,7 +8,8 @@ import {
   ShoppingCart, Plus, Minus, Trash2, Utensils,
   Sparkles, ChefHat, CheckCircle2, MessageSquare,
   Coffee, IceCream, X, Flame, Search, ArrowRight,
-  HelpCircle, MapPin, Star, Clock3, Package
+  HelpCircle, MapPin, Star, Clock3, Package,
+  Camera, Share2
 } from 'lucide-react';
 
 const getImageUrl = (imagePath) => {
@@ -50,6 +51,12 @@ export default function CustomerView() {
   const [tableError, setTableError] = useState('');
 
   const tableInputRef = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [cameraItem, setCameraItem] = useState(null);
+  const [capturedPhoto, setCapturedPhoto] = useState(null);
 
   // Real-time tracking relies on polling in Vercel Serverless
 
@@ -104,6 +111,60 @@ export default function CustomerView() {
     } else { alert(result.error || 'Failed to place order. Please try again.'); }
   };
   const handleCloseDrawer = () => { setIsCartDrawerOpen(false); setCheckoutStep('cart'); };
+
+  const openCamera = (item, e) => {
+    e.stopPropagation();
+    setCameraItem(item);
+    setCapturedPhoto(null);
+    setIsCameraOpen(true);
+  };
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
+      if (videoRef.current) videoRef.current.srcObject = stream;
+    } catch {
+      alert('Camera access denied or not available.');
+    }
+  };
+
+  const capturePhoto = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    setCapturedPhoto(canvas.toDataURL('image/jpeg'));
+    if (video.srcObject) {
+      video.srcObject.getTracks().forEach(t => t.stop());
+      video.srcObject = null;
+    }
+  };
+
+  const closeCamera = () => {
+    const video = videoRef.current;
+    if (video?.srcObject) {
+      video.srcObject.getTracks().forEach(t => t.stop());
+      video.srcObject = null;
+    }
+    setIsCameraOpen(false); setCapturedPhoto(null); setCameraItem(null);
+  };
+
+  const shareItem = async (item, e) => {
+    e.stopPropagation();
+    const data = { title: item.name, text: `Check out ${item.name} — ${item.description || 'from our menu!'}`, url: window.location.href };
+    if (navigator.share) {
+      try { await navigator.share(data); } catch (err) { if (err.name !== 'AbortError') console.error(err); }
+    } else if (navigator.clipboard) {
+      try { await navigator.clipboard.writeText(`${item.name} — ${item.description || ''} ${window.location.href}`); alert('Link copied!'); } catch { alert('Sharing not supported.'); }
+    } else { alert('Sharing not supported.'); }
+  };
+
+  useEffect(() => {
+    if (isCameraOpen) startCamera();
+    return () => { if (videoRef.current?.srcObject) { videoRef.current.srcObject.getTracks().forEach(t => t.stop()); } };
+  }, [isCameraOpen]);
 
   if (menuLoading && menu.length === 0) {
     return (
@@ -246,9 +307,13 @@ export default function CustomerView() {
             <div className="food-card-body">
               <h3 className="food-card-name">{item.name}</h3>
               <p className="food-desc">{item.description}</p>
-              <button className="add-to-cart-btn btn-primary" onClick={(e) => { e.stopPropagation(); openCustomizationModal(item); }}>
-                <Plus size={15} /> Add to Order
-              </button>
+              <div className="food-card-actions-row">
+                <button className="add-to-cart-btn btn-primary" onClick={(e) => { e.stopPropagation(); openCustomizationModal(item); }}>
+                  <Plus size={15} /> Add to Order
+                </button>
+                <button className="food-action-btn" onClick={(e) => shareItem(item, e)} title="Share"><Share2 size={15} /></button>
+                <button className="food-action-btn" onClick={(e) => openCamera(item, e)} title="Snap"><Camera size={15} /></button>
+              </div>
             </div>
           </div>
         ))}
@@ -288,6 +353,39 @@ export default function CustomerView() {
                 </div>
                 <button className="btn-primary flex-1" onClick={handleAddToOrder}>Add to Order</button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isCameraOpen && (
+        <div className="modal-backdrop fade-in" onClick={closeCamera}>
+          <div className="camera-modal glass" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={closeCamera}><X size={18} /></button>
+            <div className="camera-modal-header">
+              <Camera size={18} />
+              <h3>Snap — {cameraItem?.name}</h3>
+            </div>
+            <div className="camera-body">
+              {!capturedPhoto ? (
+                <>
+                  <div className="camera-viewfinder">
+                    <video ref={videoRef} autoPlay playsInline className="camera-video" />
+                    <canvas ref={canvasRef} style={{ display: 'none' }} />
+                  </div>
+                  <button className="camera-capture-btn" onClick={capturePhoto}>
+                    <div className="capture-ring" />
+                  </button>
+                </>
+              ) : (
+                <div className="camera-preview">
+                  <img src={capturedPhoto} alt="Captured" className="camera-preview-img" />
+                  <div className="camera-preview-actions">
+                    <button className="btn-secondary" onClick={() => { setCapturedPhoto(null); startCamera(); }}>Retake</button>
+                    <button className="btn-primary" onClick={closeCamera}>Done</button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

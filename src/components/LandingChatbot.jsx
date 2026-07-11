@@ -160,6 +160,7 @@ function ChatMessageBubble({
 }
 
 export default function LandingChatbot() {
+  const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState(INITIAL_MESSAGES);
   const [draft, setDraft] = useState("");
   const [isThinking, setIsThinking] = useState(false);
@@ -298,7 +299,19 @@ export default function LandingChatbot() {
       )}
     >
       <div className="pointer-events-auto">
-        <Sheet>
+        <Sheet open={open} onOpenChange={(newOpen) => {
+          if (!newOpen) {
+            requestAbortRef.current?.abort();
+            requestAbortRef.current = null;
+            isSubmittingRef.current = false;
+            setIsThinking(false);
+            const activeTypingMessageId = typingMessageIdRef.current;
+            if (activeTypingMessageId !== null) {
+              finishTypingMessage(activeTypingMessageId);
+            }
+          }
+          setOpen(newOpen);
+        }}>
           <SheetTrigger asChild>
             <Button
               type="button"
