@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { NotFoundError, ValidationError } from '@/lib/errors';
 
-const VALID_STATUSES = ['pending', 'preparing', 'ready', 'completed', 'cancelled'];
+const VALID_STATUSES = ['pending', 'approved', 'preparing', 'ready', 'completed', 'cancelled'];
 
 export const orderService = {
   async findByTenant(tenantId, filters = {}) {

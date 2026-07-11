@@ -8,10 +8,9 @@ export async function GET(request) {
   try {
     const user = await authenticate(request);
     authorize(ROLES.KITCHEN_STAFF, ROLES.MANAGER)(user);
-    const { searchParams } = new URL(request.url);
-    const filters = { status: searchParams.get('status') || undefined };
 
-    const orders = await orderService.findByTenant(user.tenant_id, filters);
+    const orders = await orderService.findByTenant(user.tenant_id, { status: 'approved' });
+
     return NextResponse.json({ success: true, data: orders.map(transformOrder) });
   } catch (error) {
     return handleApiError(error);

@@ -19,6 +19,7 @@ enum UserRole {
 
 enum OrderStatus {
   pending
+  approved
   preparing
   ready
   completed

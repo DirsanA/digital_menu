@@ -188,11 +188,12 @@ export default function CustomerView() {
 
   if (activeOrder) {
     const steps = [
-      { key: 'pending',   label: 'Order Received',  desc: 'Your order was sent to the kitchen', icon: <Clock3 size={14} /> },
-      { key: 'preparing', label: 'Preparing',        desc: 'Chefs are cooking your meal',        icon: <ChefHat size={14} /> },
-      { key: 'ready',     label: 'Ready to Serve',   desc: 'Your food is leaving the kitchen',   icon: <Star size={14} /> },
+      { key: 'pending',   label: 'Order Placed',     desc: 'Your order has been submitted',       icon: <Clock3 size={14} /> },
+      { key: 'approved',  label: 'Confirmed',         desc: 'Staff has approved your order',       icon: <CheckCircle2 size={14} /> },
+      { key: 'preparing', label: 'Preparing',         desc: 'Chefs are cooking your meal',         icon: <ChefHat size={14} /> },
+      { key: 'ready',     label: 'Ready to Serve',    desc: 'Your food is leaving the kitchen',    icon: <Star size={14} /> },
     ];
-    const statusMap = { pending: 1, preparing: 2, ready: 3, completed: 4, cancelled: 0 };
+    const statusMap = { pending: 1, approved: 2, preparing: 3, ready: 4, completed: 5, cancelled: 0 };
     const currentLevel = statusMap[activeOrder.status] || 0;
     const getStepClass = (key) => {
       if (activeOrder.status === 'cancelled') return 'step-cancelled';

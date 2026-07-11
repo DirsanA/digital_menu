@@ -8,7 +8,7 @@ import {
   LayoutDashboard, ShoppingBag, ChefHat, Grid3X3, Users, FileText,
   Receipt, CalendarClock, QrCode, Settings, CreditCard, LogOut,
   Menu as MenuIcon, X, Store, DollarSign, Utensils, Building2,
-  BarChart3, Flag, ClipboardList,
+  BarChart3, Flag, ClipboardList, BadgeCheck,
 } from 'lucide-react';
 
 const superAdminNav = [
@@ -60,10 +60,27 @@ const managerNav = [
 
 const staffNav = [
   {
-    label: 'General',
+    label: 'Orders',
     items: [
-      { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/admin/orders', label: 'Orders', icon: ShoppingBag },
+    ],
+  },
+];
+
+const waiterNav = [
+  {
+    label: 'Orders',
+    items: [
+      { href: '/admin/orders', label: 'Approve Orders', icon: BadgeCheck },
+    ],
+  },
+];
+
+const kitchenNav = [
+  {
+    label: 'Kitchen',
+    items: [
+      { href: '/admin/kitchen', label: 'Kitchen Display', icon: ChefHat },
     ],
   },
 ];
@@ -80,8 +97,8 @@ const navConfig = {
   super_admin: superAdminNav,
   manager: managerNav,
   cashier: staffNav,
-  waiter: staffNav,
-  kitchen_staff: staffNav,
+  waiter: waiterNav,
+  kitchen_staff: kitchenNav,
 };
 
 export default function AdminLayout({ children }) {

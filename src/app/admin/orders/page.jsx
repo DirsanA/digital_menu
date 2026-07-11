@@ -1,20 +1,63 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiFetch } from '@/lib/api';
-import { Play, Check, CheckCircle, ChefHat, Bell } from 'lucide-react';
+import { Bell, BellOff, BadgeCheck, Timer, CheckCircle2, XCircle } from 'lucide-react';
+
+function getTimeAgo(dateStr) {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diff < 60) return `${diff}s ago`;
+  const m = Math.floor(diff / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m ago`;
+}
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const countRef = useRef(0);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [now, setNow] = useState(Date.now());
+  const [approvingIds, setApprovingIds] = useState(new Set());
+  const prevCountRef = useRef(0);
+  const firstLoadRef = useRef(true);
 
-  const fetchOrders = async () => {
+  const playChime = useCallback(() => {
+    if (!soundEnabled) return;
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const t = ctx.currentTime;
+      [
+        { freq: 880, start: 0, dur: 0.15 },
+        { freq: 1108.73, start: 0.12, dur: 0.15 },
+        { freq: 1318.51, start: 0.24, dur: 0.25 },
+      ].forEach(({ freq, start, dur }) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, t + start);
+        gain.gain.setValueAtTime(0, t + start);
+        gain.gain.linearRampToValueAtTime(0.2, t + start + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + start + dur);
+        osc.start(t + start);
+        osc.stop(t + start + dur);
+      });
+    } catch (_) {}
+  }, [soundEnabled]);
+
+  const fetchOrders = useCallback(async () => {
     try {
       const data = await apiFetch('/orders');
       if (data) {
-        if (countRef.current !== 0 && data.length > countRef.current) playChime();
-        countRef.current = data.length;
+        if (!firstLoadRef.current && data.length > prevCountRef.current) {
+          playChime();
+        }
+        prevCountRef.current = data.length;
+        firstLoadRef.current = false;
         setOrders(data);
       }
     } catch (err) {
@@ -22,132 +65,183 @@ export default function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [playChime]);
 
   useEffect(() => {
     fetchOrders();
     const interval = setInterval(fetchOrders, 5000);
     return () => clearInterval(interval);
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 10000);
+    return () => clearInterval(tick);
   }, []);
 
-  const playChime = () => {
+  const approveOrder = async (orderId) => {
+    setApprovingIds(prev => new Set(prev).add(orderId));
     try {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) return;
-      const ctx = new Ctx();
-      const t = ctx.currentTime;
-      [587.33, 880].forEach((f, i) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.type = 'sine'; osc.frequency.setValueAtTime(f, t + i * 0.12);
-        gain.gain.setValueAtTime(0, t + i * 0.12);
-        gain.gain.linearRampToValueAtTime(0.25, t + i * 0.12 + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.12 + 0.6);
-        osc.start(t + i * 0.12); osc.stop(t + i * 0.12 + 0.6);
-      });
-    } catch (_) {}
-  };
-
-  const updateStatus = async (orderId, status) => {
-    try {
-      const data = await apiFetch(`/orders/${orderId}/status`, {
+      await apiFetch(`/orders/${orderId}/status`, {
         method: 'PUT',
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: 'approved' }),
       });
-      if (data) setOrders(prev => prev.map(o => o.id === orderId ? data : o));
-    } catch (err) { console.error(err); }
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'approved' } : o));
+    } catch (err) {
+      console.error(err);
+      setApprovingIds(prev => {
+        const next = new Set(prev);
+        next.delete(orderId);
+        return next;
+      });
+    }
   };
 
-  const pending   = orders.filter(o => o.status === 'pending');
-  const preparing = orders.filter(o => o.status === 'preparing');
-  const ready     = orders.filter(o => o.status === 'ready');
-  const completed = orders.filter(o => o.status === 'completed');
+  const rejectOrder = async (orderId) => {
+    setApprovingIds(prev => new Set(prev).add(orderId));
+    try {
+      await apiFetch(`/orders/${orderId}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'cancelled' }),
+      });
+      setOrders(prev => prev.filter(o => o.id !== orderId));
+    } catch (err) {
+      console.error(err);
+      setApprovingIds(prev => {
+        const next = new Set(prev);
+        next.delete(orderId);
+        return next;
+      });
+    }
+  };
 
-  const OrderTicket = ({ order, action }) => (
-    <div className="order-ticket glass fade-in">
-      <div className="ticket-header">
-        <h4>Table {order.tableNumber}</h4>
-        <span className="order-time">
-          {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </span>
-      </div>
-      <div className="ticket-body">
-        {order.items?.map((item, idx) => (
-          <div key={idx} className="ticket-item">
-            <span><strong>{item.quantity}×</strong> {item.name}</span>
-            {item.customizations && <span className="ticket-customization">"{item.customizations}"</span>}
-          </div>
-        ))}
-        {order.notes && <div className="ticket-notes"><strong>Note:</strong> {order.notes}</div>}
-      </div>
-      <div className="ticket-footer">
-        <span>Total: ${order.totalAmount?.toFixed(2)}</span>
-        {action}
-      </div>
-    </div>
-  );
+  const pending = orders.filter(o => o.status === 'pending');
+  const approved = orders.filter(o => o.status === 'approved');
+  const cooking = orders.filter(o => o.status === 'preparing');
+  const ready = orders.filter(o => o.status === 'ready');
 
-  if (loading) return <div className="view-loader-container"><div className="spinner" /></div>;
+  if (loading) {
+    return (
+      <div className="kitchen-page">
+        <div className="kitchen-loading">
+          <div className="spinner" />
+          <span>Loading orders...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="orders-page fade-in">
-      <div className="page-header">
-        <h1><Bell size={22} /> Live Orders</h1>
-        <span className="order-count-badge">{orders.length} total</span>
-      </div>
-      <div className="queue-columns-container">
-        <div className="queue-column glass">
-          <div className="column-header border-pending">
-            <h3>New Orders</h3>
-            <span className="item-count-badge bg-pending">{pending.length}</span>
+    <div className="waiter-page fade-in">
+      <div className="waiter-topbar">
+        <div className="waiter-topbar-left">
+          <div className="waiter-logo">
+            <BadgeCheck size={20} />
           </div>
-          <div className="column-orders-list">
-            {pending.map(order => (
-              <OrderTicket key={order.id} order={order} action={
-                <button className="btn-primary btn-sm flex-1 mt-2" onClick={() => updateStatus(order.id, 'preparing')}>
-                  <Play size={13} /> Cook Order
-                </button>
-              } />
-            ))}
-            {pending.length === 0 && <div className="empty-column">No incoming orders</div>}
+          <div className="waiter-topbar-info">
+            <h1>Approve Orders</h1>
+            <span className="waiter-topbar-sub">
+              {pending.length} pending order{pending.length !== 1 && 's'}
+            </span>
           </div>
         </div>
-
-        <div className="queue-column glass">
-          <div className="column-header border-preparing">
-            <h3>In Kitchen</h3>
-            <span className="item-count-badge bg-preparing">{preparing.length}</span>
-          </div>
-          <div className="column-orders-list">
-            {preparing.map(order => (
-              <OrderTicket key={order.id} order={order} action={
-                <button className="btn-primary btn-sm btn-preparing-action flex-1 mt-2" onClick={() => updateStatus(order.id, 'ready')}>
-                  <Check size={13} /> Ready to Serve
-                </button>
-              } />
-            ))}
-            {preparing.length === 0 && <div className="empty-column">Kitchen is idle</div>}
-          </div>
-        </div>
-
-        <div className="queue-column glass">
-          <div className="column-header border-ready">
-            <h3>Ready / Pickup</h3>
-            <span className="item-count-badge bg-ready">{ready.length}</span>
-          </div>
-          <div className="column-orders-list">
-            {ready.map(order => (
-              <OrderTicket key={order.id} order={order} action={
-                <button className="btn-primary btn-sm btn-ready-action flex-1 mt-2" onClick={() => updateStatus(order.id, 'completed')}>
-                  <CheckCircle size={13} /> Served
-                </button>
-              } />
-            ))}
-            {ready.length === 0 && <div className="empty-column">No orders waiting</div>}
+        <div className="waiter-topbar-right">
+          <button
+            className={`kitchen-sound-toggle ${soundEnabled ? 'active' : ''}`}
+            onClick={() => setSoundEnabled(p => !p)}
+          >
+            {soundEnabled ? <Bell size={18} /> : <BellOff size={18} />}
+          </button>
+          <div className="kitchen-topbar-time">
+            {new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
         </div>
       </div>
+
+      {pending.length === 0 ? (
+        <div className="waiter-empty-state">
+          <div className="waiter-empty-icon">
+            <CheckCircle2 size={48} />
+          </div>
+          <h2>All Caught Up</h2>
+          <p>No new orders to approve. Waiting for customers...</p>
+        </div>
+      ) : (
+        <div className="waiter-orders-grid">
+          {pending.map(order => {
+            const isApproving = approvingIds.has(order.id);
+            return (
+              <div key={order.id} className="waiter-order-card">
+                <div className="waiter-card-top">
+                  <span className="waiter-card-table">Table {order.tableNumber}</span>
+                  <span className="waiter-card-time">
+                    <Timer size={11} /> {getTimeAgo(order.createdAt)}
+                  </span>
+                </div>
+
+                <div className="waiter-card-items">
+                  {order.items?.map((item, idx) => (
+                    <div key={idx} className="waiter-card-item">
+                      <span className="waiter-card-item-qty">{item.quantity}×</span>
+                      <span className="waiter-card-item-name">{item.name}</span>
+                      {item.customizations && (
+                        <span className="waiter-card-item-note">{item.customizations}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {order.notes && (
+                  <div className="waiter-card-note">{order.notes}</div>
+                )}
+
+                <div className="waiter-card-footer">
+                  <span className="waiter-card-total">${order.totalAmount?.toFixed(2)}</span>
+                  <div className="waiter-card-actions">
+                    <button
+                      className="waiter-reject-btn"
+                      onClick={() => rejectOrder(order.id)}
+                      disabled={isApproving}
+                    >
+                      <XCircle size={15} />
+                    </button>
+                    <button
+                      className="waiter-approve-btn"
+                      onClick={() => approveOrder(order.id)}
+                      disabled={isApproving}
+                    >
+                      <BadgeCheck size={15} />
+                      {isApproving ? '...' : 'Approve'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {(approved.length + cooking.length + ready.length) > 0 && (
+        <div className="waiter-tracker">
+          <h3>Order Tracker</h3>
+          <div className="waiter-tracker-row">
+            {approved.length > 0 && (
+              <div className="waiter-tracker-badge waiter-tracker-approved">
+                <BadgeCheck size={13} /> {approved.length} Sent to Kitchen
+              </div>
+            )}
+            {cooking.length > 0 && (
+              <div className="waiter-tracker-badge waiter-tracker-cooking">
+                <Timer size={13} /> {cooking.length} Cooking
+              </div>
+            )}
+            {ready.length > 0 && (
+              <div className="waiter-tracker-badge waiter-tracker-ready">
+                <CheckCircle2 size={13} /> {ready.length} Ready
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

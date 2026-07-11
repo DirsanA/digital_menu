@@ -16,7 +16,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
-    if (isAuthenticated) router.push('/admin/dashboard');
+    if (isAuthenticated) {
+      const saved = localStorage.getItem('user');
+      const user = saved ? JSON.parse(saved) : null;
+      const dest = user?.role === 'kitchen_staff' ? '/admin/kitchen'
+        : user?.role === 'waiter' ? '/admin/orders'
+        : '/admin/dashboard';
+      router.push(dest);
+    }
   }, [isAuthenticated, router]);
 
   const handleSubmit = async (e) => {
@@ -26,7 +33,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const user = await login(email, password, tenantSlug.trim() || undefined);
-      router.push('/admin/dashboard');
+      const dest = user?.role === 'kitchen_staff' ? '/admin/kitchen'
+        : user?.role === 'waiter' ? '/admin/orders'
+        : '/admin/dashboard';
+      router.push(dest);
     } catch (err) {
       setError(err.message);
     } finally {
