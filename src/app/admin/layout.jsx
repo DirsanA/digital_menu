@@ -121,13 +121,7 @@ export default function AdminLayout({ children }) {
       {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
       <aside className={`admin-sidebar glass ${sidebarOpen ? 'open' : ''}`}>
-        <div className={`sidebar-brand ${!isSuperAdmin ? 'sidebar-brand-minimal' : ''}`}>
-          {isSuperAdmin && (
-            <>
-              <div className="sidebar-logo"><Building2 size={22} /></div>
-              <span className="sidebar-brand-name">Platform Admin</span>
-            </>
-          )}
+        <div className="sidebar-brand sidebar-brand-minimal">
           <button className="sidebar-close-btn" onClick={() => setSidebarOpen(false)}><X size={18} /></button>
         </div>
 
