@@ -22,8 +22,13 @@ export async function PUT(request, { params }) {
       if (formData.has('price')) updates.price = parseFloat(formData.get('price'));
       if (formData.has('category')) updates.category = formData.get('category');
       if (formData.has('description')) updates.description = formData.get('description');
-      if (formData.has('tags')) {
-        updates.tags = formData.get('tags').split(',').map((t) => t.trim()).filter(Boolean);
+      // Use either ingredients or tags (ingredients takes priority)
+      if (formData.has('ingredients') || formData.has('tags')) {
+        const ingredientsInput = formData.get('ingredients');
+        const tagsInput = formData.get('tags');
+        updates.tags = (ingredientsInput || tagsInput)
+          ? (ingredientsInput || tagsInput).split(',').map((t) => t.trim()).filter(Boolean)
+          : [];
       }
       if (formData.has('available')) updates.available = formData.get('available') === 'true';
 
@@ -40,7 +45,12 @@ export async function PUT(request, { params }) {
       if (body.price !== undefined) updates.price = parseFloat(body.price);
       if (body.category !== undefined) updates.category = body.category;
       if (body.description !== undefined) updates.description = body.description;
-      if (body.tags !== undefined) updates.tags = Array.isArray(body.tags) ? body.tags : [];
+      // Use either ingredients or tags
+      if (body.ingredients !== undefined || body.tags !== undefined) {
+        updates.tags = Array.isArray(body.ingredients) 
+          ? body.ingredients 
+          : (Array.isArray(body.tags) ? body.tags : []);
+      }
       if (body.available !== undefined) updates.available = body.available;
       if (body.imageUrl !== undefined) updates.imageUrl = body.imageUrl;
     }

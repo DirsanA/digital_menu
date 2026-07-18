@@ -3,11 +3,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
+import { useToast } from '@/context/ToastContext';
 import {
   Plus, Edit, Trash2, Eye, EyeOff, ChefHat, X,
   Upload, ImagePlus, Package, Search,
 } from 'lucide-react';
-import AdminModal from '@/components/AdminModal';
 import CategoryDropdown from '@/components/CategoryDropdown';
 
 const getImageUrl = (imagePath) => {
@@ -16,7 +16,7 @@ const getImageUrl = (imagePath) => {
   return imagePath;
 };
 
-function ImageUploadZone({ file, previewUrl, templateImage, onFileChange, onClearFile, inputId, onTemplateChange }) {
+function ImageUploadZone({ file, previewUrl, templateImage, onFileChange, onClearFile, inputId }) {
   const inputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const displayUrl = previewUrl || getImageUrl(templateImage);
@@ -44,52 +44,29 @@ function ImageUploadZone({ file, previewUrl, templateImage, onFileChange, onClea
       </div>
       <input ref={inputRef} id={inputId} type="file" accept="image/*" style={{ display: 'none' }}
         onChange={(e) => { if (e.target.files?.[0]) onFileChange(e.target.files[0]); }} />
-      {!file && (
-        <div className="upload-template-row">
-          <label className="upload-template-label">Or use template:</label>
-          <select className="upload-template-select" value={templateImage} onChange={(e) => onTemplateChange(e.target.value)}>
-            <option value="/images/wagyu_burger.jpg">🍔 Artisan Burger</option>
-            <option value="/images/truffle_fries.jpg">🍟 Truffle Fries</option>
-            <option value="/images/wild_salmon.jpg">🐟 Wild Salmon</option>
-            <option value="/images/chocolate_lava_cake.jpg">🍫 Lava Cake</option>
-            <option value="/images/passionfruit_cooler.jpg">🍹 Passionfruit Cooler</option>
-          </select>
-        </div>
-      )}
       {file && <p className="upload-file-name"><Package size={12} /> {file.name}</p>}
     </div>
   );
 }
 
 export default function MenuPage() {
+  const { toast, confirm } = useToast();
   const [menu, setMenu] = useState([]);
   const [dbCategories, setDbCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [editing, setEditing] = useState(null);
 
-  // Create form
+  // Create/Edit form
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('');
   const [desc, setDesc] = useState('');
-  const [tags, setTags] = useState('');
+  const [ingredients, setIngredients] = useState('');
   const [image, setImage] = useState('/images/wagyu_burger.jpg');
   const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  // Edit modal
-  const [editModal, setEditModal] = useState(false);
-  const [editing, setEditing] = useState(null);
-  const [eName, setEName] = useState('');
-  const [ePrice, setEPrice] = useState('');
-  const [eCategory, setECategory] = useState('');
-  const [eDesc, setEDesc] = useState('');
-  const [eTags, setETags] = useState('');
-  const [eImage, setEImage] = useState('');
-  const [eFile, setEFile] = useState(null);
-  const [ePreviewUrl, setEPreviewUrl] = useState('');
 
   useEffect(() => { fetchData(); }, []);
 
@@ -105,7 +82,6 @@ export default function MenuPage() {
     };
   }, []);
   useEffect(() => { if (!file) { setPreviewUrl(''); return; } const url = URL.createObjectURL(file); setPreviewUrl(url); return () => URL.revokeObjectURL(url); }, [file]);
-  useEffect(() => { if (!eFile) { setEPreviewUrl(''); return; } const url = URL.createObjectURL(eFile); setEPreviewUrl(url); return () => URL.revokeObjectURL(url); }, [eFile]);
 
   useEffect(() => {
     if (!category && dbCategories.length > 0) {
@@ -133,6 +109,14 @@ export default function MenuPage() {
 
   const fetchMenu = fetchData;
 
+  const resetForm = () => {
+    setName(''); setPrice(''); setDesc(''); setIngredients('');
+    setCategory(dbCategories[0]?.name || '');
+    setFile(null);
+    setImage('/images/wagyu_burger.jpg');
+    setEditing(null);
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!name || !price || !category) return;
@@ -140,13 +124,11 @@ export default function MenuPage() {
     try {
       const fd = new FormData();
       fd.append('name', name); fd.append('price', price); fd.append('category', category);
-      fd.append('description', desc); fd.append('tags', tags); fd.append('available', 'true');
+      fd.append('description', desc); fd.append('ingredients', ingredients); fd.append('available', 'true');
       if (file) fd.append('image', file); else fd.append('image', image);
       const data = await apiFetch('/menu', { method: 'POST', body: fd });
       if (data) {
-        setName(''); setPrice(''); setDesc(''); setTags('');
-        setCategory(dbCategories[0]?.name || '');
-        setFile(null);
+        resetForm();
         fetchMenu();
       }
     } catch (err) { console.error(err); }
@@ -154,22 +136,36 @@ export default function MenuPage() {
   };
 
   const openEdit = (item) => {
-    setEditing(item); setEName(item.name); setEPrice(String(item.price));
-    setECategory(item.category); setEDesc(item.description || ''); setETags(item.tags?.join(', ') || '');
-    setEImage(item.image); setEFile(null); setEPreviewUrl(''); setEditModal(true);
+    setEditing(item);
+    setName(item.name);
+    setPrice(String(item.price));
+    setCategory(item.category);
+    setDesc(item.description || '');
+    setIngredients(item.ingredients?.join(', ') || item.tags?.join(', ') || '');
+    setImage(item.image);
+    setFile(null);
+  };
+
+  const cancelEdit = () => {
+    resetForm();
   };
 
   const handleUpdate = async (e) => {
     e.preventDefault();
-    if (!editing || !eName || !ePrice) return;
+    if (!editing || !name || !price) return;
+    setSubmitting(true);
     try {
       const fd = new FormData();
-      fd.append('name', eName); fd.append('price', ePrice); fd.append('category', eCategory);
-      fd.append('description', eDesc); fd.append('tags', eTags);
-      if (eFile) fd.append('image', eFile); else fd.append('image', eImage);
+      fd.append('name', name); fd.append('price', price); fd.append('category', category);
+      fd.append('description', desc); fd.append('ingredients', ingredients);
+      if (file) fd.append('image', file); else fd.append('image', image);
       const data = await apiFetch(`/menu/${editing.id}`, { method: 'PUT', body: fd });
-      if (data) { setEditModal(false); setEditing(null); setEFile(null); fetchMenu(); }
+      if (data) {
+        resetForm();
+        fetchMenu();
+      }
     } catch (err) { console.error(err); }
+    finally { setSubmitting(false); }
   };
 
   const toggleAvailable = async (itemId, current) => {
@@ -182,19 +178,14 @@ export default function MenuPage() {
   };
 
   const handleDelete = async (itemId) => {
-    if (!confirm('Delete this menu item permanently?')) return;
+    if (!await confirm('Delete this menu item permanently?', { danger: true, confirmText: 'Delete' })) return;
     try { await apiFetch(`/menu/${itemId}`, { method: 'DELETE' }); fetchMenu(); }
     catch (err) { console.error(err); }
   };
 
-  const categories = ['All', ...new Set([
-    ...dbCategories.map(c => c.name),
-    ...menu.map(m => m.category),
-  ])];
   const filtered = menu.filter(item => {
-    const matchCat = selectedCategory === 'All' || item.category === selectedCategory;
     const matchSearch = !searchQuery || item.name.toLowerCase().includes(searchQuery.toLowerCase()) || item.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCat && matchSearch;
+    return matchSearch;
   });
 
   return (
@@ -202,10 +193,10 @@ export default function MenuPage() {
       <div className="page-header"><h1><ChefHat size={22} /> Menu Manager</h1><span className="order-count-badge">{menu.length} items</span></div>
       <div className="menu-manager-layout">
         <div className="item-form-card glass">
-          <h3><Plus size={18} /> Add New Item</h3>
-          <form onSubmit={handleCreate} className="menu-item-form">
+          <h3><Plus size={18} /> {editing ? 'Edit Item' : 'Add New Item'}</h3>
+          <form onSubmit={editing ? handleUpdate : handleCreate} className="menu-item-form">
             <ImageUploadZone file={file} previewUrl={previewUrl} templateImage={image} inputId="new-image"
-              onFileChange={setFile} onClearFile={() => setFile(null)} onTemplateChange={setImage} />
+              onFileChange={setFile} onClearFile={() => setFile(null)} />
             <div className="form-group-row">
               <div className="form-group flex-2">
                 <label htmlFor="name">Dish / Drink Name</label>
@@ -226,16 +217,19 @@ export default function MenuPage() {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="tags">Dietary Tags (comma separated)</label>
-              <input id="tags" type="text" placeholder="e.g. Vegetarian, Spicy, Gluten-Free" value={tags} onChange={e => setTags(e.target.value)} />
+              <label htmlFor="ingredients">Ingredients (comma separated)</label>
+              <input id="ingredients" type="text" placeholder="e.g. Lettuce, Tomato, Onion, Beef Patty" value={ingredients} onChange={e => setIngredients(e.target.value)} />
             </div>
             <div className="form-group">
               <label htmlFor="desc">Description</label>
               <textarea id="desc" rows="3" placeholder="Describe flavors, ingredients, allergens…" value={desc} onChange={e => setDesc(e.target.value)} />
             </div>
-            <button type="submit" className="btn-primary w-full" disabled={submitting || dbCategories.length === 0 || !category}>
-              {submitting ? 'Adding…' : <><Plus size={16} /> Add to Menu</>}
-            </button>
+            <div className="edit-modal-actions" style={{ marginTop: '1rem' }}>
+              {editing && <button type="button" className="btn-secondary flex-1" onClick={cancelEdit}>Cancel</button>}
+              <button type="submit" className={editing ? "btn-primary flex-1" : "btn-primary w-full"} disabled={submitting || dbCategories.length === 0 || !category}>
+                {submitting ? (editing ? 'Saving…' : 'Adding…') : <>{editing ? 'Save Changes' : <><Plus size={16} /> Add to Menu</>}</>}
+              </button>
+            </div>
           </form>
         </div>
 
@@ -247,9 +241,6 @@ export default function MenuPage() {
               <input type="text" placeholder="Search menu items…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
               {searchQuery && <X size={14} className="clear-search" onClick={() => setSearchQuery('')} />}
             </div>
-            <select className="catalog-filter" value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>
-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
           </div>
           <div className="catalog-grid">
             {loading ? <div className="view-loader-container"><div className="spinner" /></div> : null}
@@ -274,42 +265,6 @@ export default function MenuPage() {
           </div>
         </div>
       </div>
-
-      <AdminModal
-        open={editModal && !!editing}
-        onClose={() => { setEditModal(false); setEditing(null); }}
-        title="Edit Menu Item"
-        maxWidth="520px"
-      >
-        {editing && (
-          <form onSubmit={handleUpdate} className="menu-item-form">
-            <ImageUploadZone file={eFile} previewUrl={ePreviewUrl}
-              templateImage={eImage.startsWith('/uploads') ? '/images/wagyu_burger.jpg' : eImage}
-              inputId="edit-image" onFileChange={setEFile} onClearFile={() => { setEFile(null); }}
-              onTemplateChange={(val) => { setEImage(val); setEFile(null); }} />
-            <div className="form-group-row">
-              <div className="form-group flex-2"><label>Name</label><input type="text" value={eName} onChange={e => setEName(e.target.value)} required /></div>
-              <div className="form-group" style={{ minWidth: '90px', flex: 1 }}><label>Price ($)</label><input type="number" step="0.01" value={ePrice} onChange={e => setEPrice(e.target.value)} required /></div>
-            </div>
-            <div className="form-group menu-category-field">
-              <label>Category</label>
-              <CategoryDropdown
-                value={eCategory}
-                onChange={setECategory}
-                categories={dbCategories}
-                legacyValue={editing.category}
-                emptyMessage={<>No categories available. <Link href="/admin/categories">Manage categories</Link>.</>}
-              />
-            </div>
-            <div className="form-group"><label>Tags</label><input type="text" value={eTags} onChange={e => setETags(e.target.value)} /></div>
-            <div className="form-group"><label>Description</label><textarea rows="3" value={eDesc} onChange={e => setEDesc(e.target.value)} /></div>
-            <div className="edit-modal-actions">
-              <button type="button" className="btn-secondary flex-1" onClick={() => { setEditModal(false); setEditing(null); }}>Cancel</button>
-              <button type="submit" className="btn-primary flex-1" disabled={dbCategories.length === 0 || !eCategory}>Save Changes</button>
-            </div>
-          </form>
-        )}
-      </AdminModal>
     </div>
   );
 }

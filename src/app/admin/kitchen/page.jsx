@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { apiFetch } from '@/lib/api';
 import {
-  ChefHat, Flame, Bell, BellOff, Timer, Utensils, CheckCircle2,
+  ChefHat, Flame, Bell, BellOff, Timer, Utensils, CheckCircle2, ArrowRight, CircleCheck,
 } from 'lucide-react';
 
 function getTimeAgo(dateStr) {
@@ -28,7 +28,7 @@ export default function KitchenPage() {
   const [loading, setLoading] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [now, setNow] = useState(Date.now());
-  const [startedIds, setStartedIds] = useState(new Set());
+  const [actionIds, setActionIds] = useState(new Set());
   const prevCountRef = useRef(0);
   const firstLoadRef = useRef(true);
 
@@ -88,24 +88,98 @@ export default function KitchenPage() {
     return () => clearInterval(tick);
   }, []);
 
-  const startCooking = async (orderId) => {
-    setStartedIds(prev => new Set(prev).add(orderId));
+  const updateOrderStatus = async (orderId, newStatus) => {
+    setActionIds(prev => new Set(prev).add(orderId));
     try {
       await apiFetch(`/orders/${orderId}/status`, {
         method: 'PUT',
-        body: JSON.stringify({ status: 'preparing' }),
+        body: JSON.stringify({ status: newStatus }),
       });
-      setOrders(prev => prev.filter(o => o.id !== orderId));
-      prevCountRef.current = Math.max(0, prevCountRef.current - 1);
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     } catch (err) {
       console.error(err);
-      setStartedIds(prev => {
+    } finally {
+      setActionIds(prev => {
         const next = new Set(prev);
         next.delete(orderId);
         return next;
       });
     }
   };
+
+  const startCooking = (orderId) => updateOrderStatus(orderId, 'preparing');
+  const markReady = (orderId) => updateOrderStatus(orderId, 'ready');
+  const markComplete = (orderId) => {
+    setOrders(prev => prev.filter(o => o.id !== orderId));
+    updateOrderStatus(orderId, 'completed');
+  };
+
+  const newOrders = orders.filter(o => o.status === 'approved');
+  const preparing = orders.filter(o => o.status === 'preparing');
+  const ready = orders.filter(o => o.status === 'ready');
+
+  const columns = [
+    {
+      key: 'new',
+      title: 'New Orders',
+      icon: <Flame size={16} />,
+      orders: newOrders,
+      color: '#f97316',
+      emptyText: 'No new orders from the waiter',
+      renderActions: (order) => {
+        const isActioning = actionIds.has(order.id);
+        return (
+          <button
+            className="kanban-btn kanban-btn-start"
+            onClick={() => startCooking(order.id)}
+            disabled={isActioning}
+          >
+            <Flame size={13} /> {isActioning ? 'Starting...' : 'Start Cooking'}
+          </button>
+        );
+      },
+    },
+    {
+      key: 'preparing',
+      title: 'Preparing',
+      icon: <ChefHat size={16} />,
+      orders: preparing,
+      color: '#eab308',
+      emptyText: 'No orders being prepared',
+      renderActions: (order) => {
+        const isActioning = actionIds.has(order.id);
+        return (
+          <button
+            className="kanban-btn kanban-btn-ready"
+            onClick={() => markReady(order.id)}
+            disabled={isActioning}
+          >
+            <CheckCircle2 size={13} /> {isActioning ? 'Marking...' : 'Ready'}
+          </button>
+        );
+      },
+    },
+    {
+      key: 'ready',
+      title: 'Ready to Serve',
+      icon: <CircleCheck size={16} />,
+      orders: ready,
+      color: '#22c55e',
+      emptyText: 'No dishes ready',
+      renderActions: (order) => {
+        const isActioning = actionIds.has(order.id);
+        return (
+          <button
+            className="kanban-btn kanban-btn-complete"
+            onClick={() => markComplete(order.id)}
+            disabled={isActioning}
+          >
+            <CheckCircle2 size={13} /> {isActioning ? 'Clearing...' : 'Clear'}
+          </button>
+        );
+      },
+    },
+  ];
 
   if (loading) {
     return (
@@ -128,7 +202,7 @@ export default function KitchenPage() {
           <div className="kitchen-topbar-info">
             <h1>Kitchen Display</h1>
             <span className="kitchen-topbar-sub">
-              {orders.length} new order{orders.length !== 1 && 's'}
+              {newOrders.length + preparing.length + ready.length} active order{(newOrders.length + preparing.length + ready.length) !== 1 && 's'}
             </span>
           </div>
         </div>
@@ -146,59 +220,64 @@ export default function KitchenPage() {
         </div>
       </div>
 
-      {orders.length === 0 ? (
-        <div className="kitchen-empty-state">
-          <div className="kitchen-empty-icon">
-            <CheckCircle2 size={48} />
-          </div>
-          <h2>All Clear</h2>
-          <p>No new orders from the waiter. Waiting for incoming orders...</p>
-        </div>
-      ) : (
-        <div className="kitchen-orders-grid">
-          {orders.map(order => {
-            const urgency = getUrgencyLevel(order.createdAt);
-            const isStarting = startedIds.has(order.id);
-            return (
-              <div key={order.id} className={`kitchen-card kitchen-card-${urgency}`}>
-                <div className="kitchen-card-top">
-                  <span className="kitchen-card-table-num">Table {order.tableNumber}</span>
-                  <span className="kitchen-card-order-num">#{String(order.orderNumber).padStart(4, '0')}</span>
-                </div>
+      <div className="kanban-board">
+        {columns.map(col => (
+          <div key={col.key} className="kanban-column">
+            <div className="kanban-column-header" style={{ borderColor: col.color }}>
+              <span className="kanban-column-icon" style={{ color: col.color }}>{col.icon}</span>
+              <h2 className="kanban-column-title">{col.title}</h2>
+              <span className="kanban-column-count" style={{ background: col.color + '22', color: col.color }}>
+                {col.orders.length}
+              </span>
+            </div>
 
-                <div className="kitchen-card-items">
-                  {order.items?.map((item, idx) => (
-                    <div key={idx} className="kitchen-card-item">
-                      <span className="kitchen-card-item-qty">{item.quantity}×</span>
-                      <span className="kitchen-card-item-name">{item.name}</span>
-                      {item.customizations && (
-                        <span className="kitchen-card-item-note">{item.customizations}</span>
+            <div className="kanban-column-body">
+              {col.orders.length === 0 ? (
+                <div className="kanban-empty">
+                  <Utensils size={24} className="text-zinc-700" />
+                  <p>{col.emptyText}</p>
+                </div>
+              ) : (
+                col.orders.map(order => {
+                  const urgency = order.status === 'approved' ? getUrgencyLevel(order.createdAt) : 'normal';
+                  const isActioning = actionIds.has(order.id);
+                  return (
+                    <div key={order.id} className={`kanban-card ${order.status === 'approved' ? `kanban-card-${urgency}` : ''}`}>
+                      <div className="kanban-card-top">
+                        <span className="kanban-card-table">Table {order.tableNumber}</span>
+                        <span className="kanban-card-order-num">#{String(order.orderNumber).padStart(4, '0')}</span>
+                      </div>
+
+                      <div className="kanban-card-items">
+                        {order.items?.map((item, idx) => (
+                          <div key={idx} className="kanban-card-item">
+                            <span className="kanban-card-item-qty">{item.quantity}x</span>
+                            <span className="kanban-card-item-name">{item.name}</span>
+                            {item.customizations && (
+                              <span className="kanban-card-item-note">{item.customizations}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {order.notes && (
+                        <div className="kanban-card-note">{order.notes}</div>
                       )}
+
+                      <div className="kanban-card-footer">
+                        <span className="kanban-card-time">
+                          <Timer size={11} /> {getTimeAgo(order.createdAt)}
+                        </span>
+                        {col.renderActions(order)}
+                      </div>
                     </div>
-                  ))}
-                </div>
-
-                {order.notes && (
-                  <div className="kitchen-card-note">{order.notes}</div>
-                )}
-
-                <div className="kitchen-card-footer">
-                  <span className="kitchen-card-time">
-                    <Timer size={11} /> {getTimeAgo(order.createdAt)}
-                  </span>
-                  <button
-                    className="kitchen-btn kitchen-btn-start"
-                    onClick={() => startCooking(order.id)}
-                    disabled={isStarting}
-                  >
-                    <Flame size={14} /> {isStarting ? 'Starting...' : 'Start Cooking'}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+                  );
+                })
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

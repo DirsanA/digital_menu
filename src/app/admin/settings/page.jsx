@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { Settings as SettingsIcon, Globe, CreditCard, Save, Store, Plus, X, Shield } from 'lucide-react';
 
 function PlatformSettings() {
@@ -26,6 +27,7 @@ function PlatformSettings() {
 
 function TenantSettings() {
   const { user } = useAuth();
+  const { toast, confirm } = useToast();
   const [tenant, setTenant] = useState(null);
   const [domains, setDomains] = useState([]);
   const [subscription, setSubscription] = useState(null);
@@ -79,7 +81,7 @@ function TenantSettings() {
   };
 
   const handleDeleteDomain = async (id) => {
-    if (!confirm('Remove this domain?')) return;
+    if (!await confirm('Remove this domain?', { danger: true, confirmText: 'Remove' })) return;
     try { await apiFetch(`/domains/${id}`, { method: 'DELETE' }); loadData(); }
     catch (err) { console.error(err); }
   };

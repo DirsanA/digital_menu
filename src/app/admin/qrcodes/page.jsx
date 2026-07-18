@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { generateQrPdf, buildQrImageUrl } from '@/lib/qrPdf';
 import { QrCode, RefreshCw, Copy, FileDown, Download } from 'lucide-react';
 
@@ -16,6 +17,7 @@ function buildRestaurantUrl(baseUrl, slug) {
 
 export default function QrCodesPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [qrCode, setQrCode] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -78,7 +80,7 @@ export default function QrCodesPage() {
       });
     } catch (err) {
       console.error(err);
-      alert(err.message || 'Could not generate PDF. Try downloading the PNG instead.');
+      toast.error(err.message || 'Could not generate PDF. Try downloading the PNG instead.');
     } finally {
       pdfLockRef.current = false;
       setDownloadingPdf(false);

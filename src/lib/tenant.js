@@ -20,13 +20,24 @@ export async function resolveTenant(request) {
 
 // Maps Prisma field names and types to what the frontend expects
 export function transformMenuItem(item) {
+  // Safeguard for legacy items where tags might be a single element with comma-separated string
+  let processedTags = item.tags;
+  
+  if (Array.isArray(processedTags) && processedTags.length === 1 && typeof processedTags[0] === 'string') {
+    const firstTag = processedTags[0];
+    if (firstTag.includes(',')) {
+      processedTags = firstTag.split(',').map(t => t.trim()).filter(Boolean);
+    }
+  }
+  
   return {
     id: item.id,
     name: item.name,
     price: Number(item.price),
     description: item.description,
     category: item.category,
-    tags: item.tags,
+    tags: processedTags,
+    ingredients: processedTags, // Add ingredients field (same as tags for compatibility)
     image: item.imageUrl,
     available: item.available,
     sortOrder: item.sortOrder,

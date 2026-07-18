@@ -1,9 +1,5 @@
 import './globals.css';
-import { SocketProvider } from '@/context/SocketContext';
-import { CartProvider } from '@/context/CartContext';
-import { AuthProvider } from '@/context/AuthContext';
-import Navbar from '@/components/Navbar';
-import LandingChatbot from '@/components/LandingChatbot';
+import LayoutClient from './layout-client';
 
 export const metadata = {
   title: 'Bistro Noir — Digital Menu',
@@ -14,19 +10,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <AuthProvider>
-          <SocketProvider>
-            <CartProvider>
-              <div className="app-container">
-                <Navbar />
-                <main className="main-content">
-                  {children}
-                </main>
-              </div>
-            </CartProvider>
-          </SocketProvider>
-          <LandingChatbot />
-        </AuthProvider>
+        <LayoutClient>{children}</LayoutClient>
       </body>
     </html>
   );

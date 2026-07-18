@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useToast } from '@/context/ToastContext';
 import { FileText, Plus, Edit, Trash2 } from 'lucide-react';
 import AdminModal from '@/components/AdminModal';
 
 export default function CategoriesPage() {
+  const { toast, confirm } = useToast();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
@@ -36,13 +38,13 @@ export default function CategoriesPage() {
         await apiFetch('/categories', { method: 'POST', body: JSON.stringify(body) });
       }
       setModal(false); fetchCategories();
-    } catch (err) { console.error(err); alert(err.message); }
+    } catch (err) { console.error(err); toast.error(err.message); }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this category?')) return;
+    if (!await confirm('Delete this category?', { danger: true, confirmText: 'Delete' })) return;
     try { await apiFetch(`/categories/${id}`, { method: 'DELETE' }); fetchCategories(); }
-    catch (err) { console.error(err); alert(err.message); }
+    catch (err) { console.error(err); toast.error(err.message); }
   };
 
   if (loading) return <div className="view-loader-container"><div className="spinner" /></div>;

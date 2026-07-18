@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useToast } from '@/context/ToastContext';
 import { CreditCard, Plus, Edit, Trash2, X, DollarSign } from 'lucide-react';
 
 export default function PricingPage() {
+  const { confirm } = useToast();
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
@@ -50,7 +52,7 @@ export default function PricingPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this pricing plan?')) return;
+    if (!await confirm('Delete this pricing plan?', { danger: true, confirmText: 'Delete' })) return;
     try { await apiFetch(`/admin/pricing/${id}`, { method: 'DELETE' }); fetchPlans(); }
     catch (err) { console.error(err); }
   };

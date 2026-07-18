@@ -5,8 +5,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
-  LayoutDashboard, ShoppingBag, ChefHat, Grid3X3, Users, FileText,
-  Receipt, CalendarClock, QrCode, Settings, CreditCard, LogOut,
+  LayoutDashboard, ShoppingBag, ChefHat, Users, FileText,
+  Receipt, CalendarClock, QrCode, LogOut,
   Menu as MenuIcon, X, Store, DollarSign, Utensils, Building2,
   BarChart3, Flag, ClipboardList, BadgeCheck,
 } from 'lucide-react';
@@ -17,7 +17,6 @@ const superAdminNav = [
     items: [
       { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/admin/tenants', label: 'Restaurants', icon: Building2 },
-      { href: '/admin/subscriptions', label: 'Subscriptions', icon: CreditCard },
       { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
     ],
   },
@@ -26,7 +25,6 @@ const superAdminNav = [
     items: [
       { href: '/admin/pricing', label: 'Pricing Plans', icon: DollarSign },
       { href: '/admin/feature-flags', label: 'Feature Flags', icon: Flag },
-      { href: '/admin/settings', label: 'Settings', icon: Settings },
     ],
   },
 ];
@@ -37,10 +35,8 @@ const managerNav = [
     items: [
       { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/admin/menu', label: 'Menu', icon: ClipboardList },
-      { href: '/admin/tables', label: 'Tables', icon: Grid3X3 },
       { href: '/admin/categories', label: 'Categories', icon: FileText },
       { href: '/admin/qrcodes', label: 'QR Codes', icon: QrCode },
-      { href: '/admin/subscription', label: 'Subscription', icon: CreditCard },
       { href: '/admin/users', label: 'Staff', icon: Users },
     ],
   },
@@ -48,12 +44,6 @@ const managerNav = [
     label: 'Finance',
     items: [
       { href: '/admin/reports', label: 'Reports', icon: BarChart3 },
-    ],
-  },
-  {
-    label: 'System',
-    items: [
-      { href: '/admin/settings', label: 'Settings', icon: Settings },
     ],
   },
 ];

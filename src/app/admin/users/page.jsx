@@ -1,14 +1,23 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { canManageStaff, getAssignableRoles } from '@/lib/staffPermissions';
-import { Users, Plus, Edit, Trash2, UserCheck, UserX } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, UserCheck, UserX, ChevronDown, Shield, Banknote, UtensilsCrossed, ChefHat } from 'lucide-react';
 import AdminModal from '@/components/AdminModal';
+
+const ROLE_META = {
+  manager: { label: 'Manager', icon: Shield, color: '#818cf8', desc: 'Full access to manage staff, menu & reports' },
+  cashier: { label: 'Cashier', icon: Banknote, color: '#4ade80', desc: 'Handles payments and invoicing' },
+  waiter: { label: 'Waiter', icon: UtensilsCrossed, color: '#fbbf24', desc: 'Approves and manages table orders' },
+  kitchen_staff: { label: 'Kitchen Staff', icon: ChefHat, color: '#f87171', desc: 'Views orders and manages food prep' },
+};
 
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
+  const { toast, confirm } = useToast();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
@@ -17,11 +26,23 @@ export default function UsersPage() {
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('waiter');
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
+  const roleDropdownRef = useRef(null);
 
   const isSuperAdmin = currentUser?.role === 'super_admin';
   const roleOptions = getAssignableRoles(currentUser);
 
   useEffect(() => { fetchUsers(); }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (roleDropdownRef.current && !roleDropdownRef.current.contains(e.target)) {
+        setRoleDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -58,18 +79,18 @@ export default function UsersPage() {
       if (editing) {
         await apiFetch(`/users/${editing.id}`, { method: 'PUT', body: JSON.stringify(body) });
       } else {
-        if (!password) { alert('Password is required for new users'); return; }
+        if (!password) { toast.error('Password is required for new users'); return; }
         await apiFetch('/users', { method: 'POST', body: JSON.stringify(body) });
       }
       setModal(false); fetchUsers();
-    } catch (err) { console.error(err); alert(err.message); }
+      } catch (err) { console.error(err); toast.error(err.message); }
   };
 
   const handleDelete = async (u) => {
     if (!canManageStaff(currentUser, u)) return;
-    if (!confirm('Delete this user?')) return;
+    if (!await confirm('Delete this user?', { danger: true, confirmText: 'Delete' })) return;
     try { await apiFetch(`/users/${u.id}`, { method: 'DELETE' }); fetchUsers(); }
-    catch (err) { console.error(err); alert(err.message); }
+    catch (err) { console.error(err); toast.error(err.message); }
   };
 
   const toggleActive = async (u) => {
@@ -81,7 +102,7 @@ export default function UsersPage() {
         body: JSON.stringify({ isActive: !u.isActive }),
       });
       fetchUsers();
-    } catch (err) { console.error(err); alert(err.message); }
+    } catch (err) { console.error(err); toast.error(err.message); }
   };
 
   if (loading) return <div className="view-loader-container"><div className="spinner" /></div>;
@@ -142,9 +163,54 @@ export default function UsersPage() {
             <div className="form-group"><label>Email</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="staff@restaurant.com" /></div>
             <div className="form-group"><label>Display Name</label><input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="e.g. John" /></div>
             <div className="form-group"><label>{editing ? 'New Password (leave blank to keep)' : 'Password'}</label><input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={editing ? 'Leave blank to keep current' : 'Enter password'} /></div>
-            <div className="form-group"><label>Role</label><select value={role} onChange={e => setRole(e.target.value)}>
-              {roleOptions.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
-            </select></div>
+            <div className="form-group">
+              <label>Role</label>
+              <div className="role-selector" ref={roleDropdownRef}>
+                <button
+                  type="button"
+                  className="role-selector-trigger"
+                  onClick={() => setRoleDropdownOpen(p => !p)}
+                >
+                  {(() => {
+                    const meta = ROLE_META[role] || ROLE_META.waiter;
+                    const Icon = meta.icon;
+                    return (
+                      <>
+                        <span className="role-selector-icon" style={{ color: meta.color }}><Icon size={16} /></span>
+                        <span className="role-selector-label">{meta.label}</span>
+                      </>
+                    );
+                  })()}
+                  <ChevronDown size={14} className={`role-selector-chevron ${roleDropdownOpen ? 'open' : ''}`} />
+                </button>
+                {roleDropdownOpen && (
+                  <div className="role-selector-dropdown">
+                    {roleOptions.map(r => {
+                      const meta = ROLE_META[r] || { label: r, icon: Shield, color: '#a1a1aa', desc: '' };
+                      const Icon = meta.icon;
+                      const isSelected = r === role;
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          className={`role-selector-option ${isSelected ? 'selected' : ''}`}
+                          onClick={() => { setRole(r); setRoleDropdownOpen(false); }}
+                        >
+                          <span className="role-option-icon" style={{ color: meta.color, background: meta.color + '18' }}>
+                            <Icon size={15} />
+                          </span>
+                          <div className="role-option-text">
+                            <span className="role-option-label">{meta.label}</span>
+                            <span className="role-option-desc">{meta.desc}</span>
+                          </div>
+                          {isSelected && <span className="role-option-check" style={{ color: meta.color }}>✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
             {editing && <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Last login: {editing.lastLoginAt ? new Date(editing.lastLoginAt).toLocaleString() : 'Never'}</p>}
             <div className="edit-modal-actions">
               <button type="button" className="btn-secondary flex-1" onClick={() => setModal(false)}>Cancel</button>

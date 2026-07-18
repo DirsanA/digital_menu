@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useToast } from '@/context/ToastContext';
 import { Grid3X3, Plus, Edit, Trash2 } from 'lucide-react';
 import AdminModal from '@/components/AdminModal';
 
 export default function TablesPage() {
+  const { toast, confirm } = useToast();
   const [tables, setTables] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
@@ -50,14 +52,14 @@ export default function TablesPage() {
       fetchTables();
     } catch (err) {
       console.error(err);
-      alert(err.message || 'Could not save table');
+      toast.error(err.message || 'Could not save table');
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this table?')) return;
+    if (!await confirm('Delete this table?', { danger: true, confirmText: 'Delete' })) return;
     try { await apiFetch(`/tables/${id}`, { method: 'DELETE' }); fetchTables(); }
-    catch (err) { console.error(err); alert(err.message); }
+    catch (err) { console.error(err); toast.error(err.message); }
   };
 
   if (loading) return <div className="view-loader-container"><div className="spinner" /></div>;

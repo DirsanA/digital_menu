@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useToast } from '@/context/ToastContext';
 import { CalendarClock, Plus, X } from 'lucide-react';
 
 export default function SchedulesPage() {
+  const { confirm } = useToast();
   const [schedules, setSchedules] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +44,7 @@ export default function SchedulesPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this schedule entry?')) return;
+    if (!await confirm('Delete this schedule entry?', { danger: true, confirmText: 'Delete' })) return;
     try { await apiFetch(`/staff-schedules/${id}`, { method: 'DELETE' }); fetchSchedules(); }
     catch (err) { console.error(err); }
   };

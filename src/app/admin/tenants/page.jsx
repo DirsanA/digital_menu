@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useToast } from '@/context/ToastContext';
 import { Building2, Plus, Edit, Trash2, Search, Users, ShoppingBag, UserPlus } from 'lucide-react';
 import AdminModal from '@/components/AdminModal';
 
@@ -10,6 +11,7 @@ function getPrimaryManager(tenant) {
 }
 
 export default function TenantsPage() {
+  const { toast, confirm } = useToast();
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,7 +73,7 @@ export default function TenantsPage() {
       const body = { name, slug: slug.toLowerCase().replace(/[^a-z0-9-]/g, '-') };
       if (!editing && includeManagerOnCreate) {
         if (!managerEmail || !managerPassword) {
-          alert('Manager email and password are required');
+          toast.error('Manager email and password are required');
           return;
         }
         body.manager = {
@@ -87,7 +89,7 @@ export default function TenantsPage() {
       }
       setModal(false);
       fetchTenants();
-    } catch (err) { console.error(err); alert(err.message); }
+    } catch (err) { console.error(err); toast.error(err.message); }
   };
 
   const handleSaveManager = async (e) => {
@@ -95,7 +97,7 @@ export default function TenantsPage() {
     if (!managerTenant || !managerEmail) return;
     const existingManager = getPrimaryManager(managerTenant);
     if (!existingManager && !managerPassword) {
-      alert('Password is required when creating a new manager');
+      toast.error('Password is required when creating a new manager');
       return;
     }
     try {
@@ -110,25 +112,25 @@ export default function TenantsPage() {
       setManagerTenant(null);
       resetManagerFields();
       fetchTenants();
-    } catch (err) { console.error(err); alert(err.message); }
+    } catch (err) { console.error(err); toast.error(err.message); }
   };
 
   const handleSuspend = async (tenant) => {
     const action = tenant.isActive ? 'suspend' : 'activate';
-    if (!confirm(`${action === 'suspend' ? 'Suspend' : 'Activate'} this restaurant?`)) return;
+    if (!await confirm(`${action === 'suspend' ? 'Suspend' : 'Activate'} this restaurant?`)) return;
     try {
       await apiFetch(`/tenants/${tenant.id}`, {
         method: 'PUT',
         body: JSON.stringify({ isActive: !tenant.isActive }),
       });
       fetchTenants();
-    } catch (err) { console.error(err); alert(err.message); }
+    } catch (err) { console.error(err); toast.error(err.message); }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this restaurant permanently? This cannot be undone.')) return;
+    if (!await confirm('Delete this restaurant permanently? This cannot be undone.', { danger: true, confirmText: 'Delete' })) return;
     try { await apiFetch(`/tenants/${id}`, { method: 'DELETE' }); fetchTenants(); }
-    catch (err) { console.error(err); alert(err.message); }
+    catch (err) { console.error(err); toast.error(err.message); }
   };
 
   const filtered = tenants.filter(t =>

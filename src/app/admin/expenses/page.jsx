@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useToast } from '@/context/ToastContext';
 import { Receipt, Plus, Edit, Trash2, X } from 'lucide-react';
 
 export default function ExpensesPage() {
+  const { confirm } = useToast();
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
@@ -43,7 +45,7 @@ export default function ExpensesPage() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this expense?')) return;
+    if (!await confirm('Delete this expense?', { danger: true, confirmText: 'Delete' })) return;
     try { await apiFetch(`/expenses/${id}`, { method: 'DELETE' }); fetchExpenses(); }
     catch (err) { console.error(err); }
   };

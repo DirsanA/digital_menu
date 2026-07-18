@@ -2,9 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
+import { useToast } from '@/context/ToastContext';
 import { Flag, Plus, Trash2, X } from 'lucide-react';
 
 export default function FeatureFlagsPage() {
+  const { confirm } = useToast();
   const [flags, setFlags] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
@@ -43,7 +45,7 @@ export default function FeatureFlagsPage() {
   };
 
   const handleDelete = async (key) => {
-    if (!confirm('Delete this feature flag?')) return;
+    if (!await confirm('Delete this feature flag?', { danger: true, confirmText: 'Delete' })) return;
     try { await apiFetch(`/admin/feature-flags/${key}`, { method: 'DELETE' }); fetchFlags(); }
     catch (err) { console.error(err); }
   };

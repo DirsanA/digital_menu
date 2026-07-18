@@ -12,7 +12,7 @@ export default function Navbar() {
     <nav className="navbar glass">
       <div className="nav-logo">
         <Utensils size={24} className="text-primary" />
-        <span>Bistro Noir</span>
+        <span>Digital Menu</span>
       </div>
       <Link
         href={isAdminPage ? '/' : '/login'}
@@ -26,7 +26,7 @@ export default function Navbar() {
         ) : (
           <>
             <ChefHat size={16} />
-            <span>Staff Portal</span>
+            <span>Staff</span>
           </>
         )}
       </Link>

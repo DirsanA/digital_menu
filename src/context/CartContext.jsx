@@ -88,7 +88,11 @@ export const CartProvider = ({ children }) => {
         body: JSON.stringify({ tableNumber, items: cart, notes })
       });
       const data = await res.json();
-      if (data.success) { setActiveOrder(data.data); clearCart(); return { success: true, order: data.data }; }
+      if (data.success) {
+        setActiveOrder(data.data);
+        clearCart();
+        return { success: true, order: data.data };
+      }
       return { success: false, error: data.message };
     } catch (err) {
       console.error(err);

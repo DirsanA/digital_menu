@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSocket } from '@/context/SocketContext';
 import { useCart } from '@/context/CartContext';
+import { useToast } from '@/context/ToastContext';
 import {
   Bell, Check, ChefHat, Play, CheckCircle,
   Trash2, DollarSign, ShoppingBag, TrendingUp, Plus, Eye, EyeOff, Edit, X,
@@ -17,7 +18,7 @@ const getImageUrl = (imagePath) => {
 };
 
 // ─── Reusable Image Upload Zone ──────────────────────────────────────────────
-function ImageUploadZone({ file, previewUrl, templateImage, onFileChange, onClearFile, inputId, onTemplateChange, showTemplateSelect = true }) {
+function ImageUploadZone({ file, previewUrl, templateImage, onFileChange, onClearFile, inputId }) {
   const inputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -85,24 +86,6 @@ function ImageUploadZone({ file, previewUrl, templateImage, onFileChange, onClea
         }}
       />
 
-      {/* Template select fallback — shown when no custom file */}
-      {showTemplateSelect && !file && (
-        <div className="upload-template-row">
-          <label className="upload-template-label">Or use template:</label>
-          <select
-            className="upload-template-select"
-            value={templateImage}
-            onChange={(e) => onTemplateChange(e.target.value)}
-          >
-            <option value="/images/wagyu_burger.jpg">🍔 Artisan Burger</option>
-            <option value="/images/truffle_fries.jpg">🍟 Truffle Fries</option>
-            <option value="/images/wild_salmon.jpg">🐟 Wild Salmon</option>
-            <option value="/images/chocolate_lava_cake.jpg">🍫 Lava Cake</option>
-            <option value="/images/passionfruit_cooler.jpg">🍹 Passionfruit Cooler</option>
-          </select>
-        </div>
-      )}
-
       {file && (
         <p className="upload-file-name">
           <Package size={12} /> {file.name}
@@ -116,52 +99,34 @@ function ImageUploadZone({ file, previewUrl, templateImage, onFileChange, onClea
 export default function AdminView() {
   const { menu, fetchMenu } = useCart();
   const { joinAdminRoom } = useSocket();
+  const { toast, confirm } = useToast();
 
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [activeTab, setActiveTab] = useState('orders');
 
-  // Create form state
-  const [newItemName, setNewItemName] = useState('');
-  const [newItemPrice, setNewItemPrice] = useState('');
-  const [newItemCategory, setNewItemCategory] = useState('Mains');
-  const [newItemDesc, setNewItemDesc] = useState('');
-  const [newItemTags, setNewItemTags] = useState('');
-  const [newItemImage, setNewItemImage] = useState('/images/wagyu_burger.jpg');
-  const [newItemFile, setNewItemFile] = useState(null);
-  const [newItemPreviewUrl, setNewItemPreviewUrl] = useState('');
-  const [isSubmittingItem, setIsSubmittingItem] = useState(false);
-
-  // Edit modal state
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // Create/Edit form state
   const [editingItem, setEditingItem] = useState(null);
-  const [editName, setEditName] = useState('');
-  const [editPrice, setEditPrice] = useState('');
-  const [editCategory, setEditCategory] = useState('Mains');
-  const [editDesc, setEditDesc] = useState('');
-  const [editTags, setEditTags] = useState('');
-  const [editImage, setEditImage] = useState('');
-  const [editFile, setEditFile] = useState(null);
-  const [editPreviewUrl, setEditPreviewUrl] = useState('');
-  const [isUpdatingItem, setIsUpdatingItem] = useState(false);
+  const [itemName, setItemName] = useState('');
+  const [itemPrice, setItemPrice] = useState('');
+  const [itemCategory, setItemCategory] = useState('Mains');
+  const [itemDesc, setItemDesc] = useState('');
+  const [itemIngredients, setItemIngredients] = useState('');
+  const [itemImage, setItemImage] = useState('/images/wagyu_burger.jpg');
+  const [itemFile, setItemFile] = useState(null);
+  const [itemPreviewUrl, setItemPreviewUrl] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Keep track of order count for the chime
   const orderCountRef = useRef(0);
 
   // Generate object URLs for previews
   useEffect(() => {
-    if (!newItemFile) { setNewItemPreviewUrl(''); return; }
-    const url = URL.createObjectURL(newItemFile);
-    setNewItemPreviewUrl(url);
+    if (!itemFile) { setItemPreviewUrl(''); return; }
+    const url = URL.createObjectURL(itemFile);
+    setItemPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
-  }, [newItemFile]);
-
-  useEffect(() => {
-    if (!editFile) { setEditPreviewUrl(''); return; }
-    const url = URL.createObjectURL(editFile);
-    setEditPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [editFile]);
+  }, [itemFile]);
 
   // Play a chime for new orders
   const playChimeSound = () => {
@@ -223,67 +188,77 @@ export default function AdminView() {
     } catch (err) { console.error(err); }
   };
 
+  const resetForm = () => {
+    setItemName(''); setItemPrice(''); setItemDesc('');
+    setItemIngredients(''); setItemCategory('Mains'); setItemFile(null);
+    setItemImage('/images/wagyu_burger.jpg');
+    setEditingItem(null);
+  };
+
   // Create menu item
   const handleCreateMenuItem = async (e) => {
     e.preventDefault();
-    if (!newItemName || !newItemPrice) return;
-    setIsSubmittingItem(true);
+    if (!itemName || !itemPrice) return;
+    setIsSubmitting(true);
     try {
       const fd = new FormData();
-      fd.append('name', newItemName);
-      fd.append('price', newItemPrice);
-      fd.append('category', newItemCategory);
-      fd.append('description', newItemDesc);
-      fd.append('tags', newItemTags);
+      fd.append('name', itemName);
+      fd.append('price', itemPrice);
+      fd.append('category', itemCategory);
+      fd.append('description', itemDesc);
+      fd.append('ingredients', itemIngredients);
       fd.append('available', 'true');
-      if (newItemFile) fd.append('image', newItemFile);
-      else fd.append('image', newItemImage);
+      if (itemFile) fd.append('image', itemFile);
+      else fd.append('image', itemImage);
 
       const res = await fetch(`${API_BASE}/menu`, { method: 'POST', body: fd });
       const data = await res.json();
       if (data.success) {
-        setNewItemName(''); setNewItemPrice(''); setNewItemDesc('');
-        setNewItemTags(''); setNewItemCategory('Mains'); setNewItemFile(null);
+        resetForm();
         fetchMenu();
       }
     } catch (err) { console.error(err); }
-    finally { setIsSubmittingItem(false); }
+    finally { setIsSubmitting(false); }
   };
 
-  // Open edit modal
-  const openEditModal = (item) => {
+  // Open edit
+  const openEdit = (item) => {
     setEditingItem(item);
-    setEditName(item.name);
-    setEditPrice(item.price);
-    setEditCategory(item.category);
-    setEditDesc(item.description || '');
-    setEditTags(item.tags?.join(', ') || '');
-    setEditImage(item.image);
-    setEditFile(null);
-    setIsEditModalOpen(true);
+    setItemName(item.name);
+    setItemPrice(item.price);
+    setItemCategory(item.category);
+    setItemDesc(item.description || '');
+    setItemIngredients(item.ingredients?.join(', ') || item.tags?.join(', ') || '');
+    setItemImage(item.image);
+    setItemFile(null);
+  };
+
+  // Cancel edit
+  const cancelEdit = () => {
+    resetForm();
   };
 
   // Update menu item
   const handleUpdateMenuItem = async (e) => {
     e.preventDefault();
-    if (!editingItem || !editName || !editPrice) return;
-    setIsUpdatingItem(true);
+    if (!editingItem || !itemName || !itemPrice) return;
+    setIsSubmitting(true);
     try {
       const fd = new FormData();
-      fd.append('name', editName); fd.append('price', editPrice);
-      fd.append('category', editCategory); fd.append('description', editDesc);
-      fd.append('tags', editTags);
-      if (editFile) fd.append('image', editFile);
-      else fd.append('image', editImage);
+      fd.append('name', itemName); fd.append('price', itemPrice);
+      fd.append('category', itemCategory); fd.append('description', itemDesc);
+      fd.append('ingredients', itemIngredients);
+      if (itemFile) fd.append('image', itemFile);
+      else fd.append('image', itemImage);
 
       const res = await fetch(`${API_BASE}/menu/${editingItem.id}`, { method: 'PUT', body: fd });
       const data = await res.json();
       if (data.success) {
-        setIsEditModalOpen(false); setEditingItem(null); setEditFile(null);
+        resetForm();
         fetchMenu();
-      } else { alert(data.message || 'Update failed'); }
-    } catch (err) { console.error(err); alert('Error updating item'); }
-    finally { setIsUpdatingItem(false); }
+      } else { toast.error(data.message || 'Update failed'); }
+    } catch (err) { console.error(err); toast.error('Error updating item'); }
+    finally { setIsSubmitting(false); }
   };
 
   // Toggle availability
@@ -301,7 +276,7 @@ export default function AdminView() {
 
   // Delete item
   const handleDeleteMenuItem = async (itemId) => {
-    if (!confirm('Delete this menu item permanently?')) return;
+    if (!await confirm('Delete this menu item permanently?', { danger: true, confirmText: 'Delete' })) return;
     try {
       const res = await fetch(`${API_BASE}/menu/${itemId}`, { method: 'DELETE' });
       const data = await res.json();
@@ -427,18 +402,17 @@ export default function AdminView() {
 
           {/* Left: Add Form */}
           <div className="item-form-card glass">
-            <h3><Plus size={18} /> Add New Item</h3>
-            <form onSubmit={handleCreateMenuItem} className="menu-item-form">
+            <h3><Plus size={18} /> {editingItem ? 'Edit Item' : 'Add New Item'}</h3>
+            <form onSubmit={editingItem ? handleUpdateMenuItem : handleCreateMenuItem} className="menu-item-form">
 
               {/* Photo Upload Zone */}
               <ImageUploadZone
-                file={newItemFile}
-                previewUrl={newItemPreviewUrl}
-                templateImage={newItemImage}
-                inputId="new-image-upload"
-                onFileChange={setNewItemFile}
-                onClearFile={() => setNewItemFile(null)}
-                onTemplateChange={setNewItemImage}
+                file={itemFile}
+                previewUrl={itemPreviewUrl}
+                templateImage={itemImage}
+                inputId="item-image-upload"
+                onFileChange={setItemFile}
+                onClearFile={() => setItemFile(null)}
               />
 
               {/* Name + Price */}
@@ -446,19 +420,19 @@ export default function AdminView() {
                 <div className="form-group flex-2">
                   <label htmlFor="name-input">Dish / Drink Name</label>
                   <input id="name-input" type="text" placeholder="e.g. Garlic Butter Shrimp"
-                    value={newItemName} onChange={e => setNewItemName(e.target.value)} required />
+                    value={itemName} onChange={e => setItemName(e.target.value)} required />
                 </div>
                 <div className="form-group" style={{ minWidth: '90px', flex: 1 }}>
                   <label htmlFor="price-input">Price ($)</label>
                   <input id="price-input" type="number" step="0.01" placeholder="15.50"
-                    value={newItemPrice} onChange={e => setNewItemPrice(e.target.value)} required />
+                    value={itemPrice} onChange={e => setItemPrice(e.target.value)} required />
                 </div>
               </div>
 
               {/* Category */}
               <div className="form-group">
                 <label htmlFor="category-select">Category</label>
-                <select id="category-select" value={newItemCategory} onChange={e => setNewItemCategory(e.target.value)}>
+                <select id="category-select" value={itemCategory} onChange={e => setItemCategory(e.target.value)}>
                   <option value="Starters">Starters</option>
                   <option value="Mains">Mains</option>
                   <option value="Desserts">Desserts</option>
@@ -466,23 +440,26 @@ export default function AdminView() {
                 </select>
               </div>
 
-              {/* Tags */}
+              {/* Ingredients */}
               <div className="form-group">
-                <label htmlFor="tags-input">Dietary Tags (comma separated)</label>
-                <input id="tags-input" type="text" placeholder="e.g. Vegetarian, Spicy, Gluten-Free"
-                  value={newItemTags} onChange={e => setNewItemTags(e.target.value)} />
+                <label htmlFor="ingredients-input">Ingredients (comma separated)</label>
+                <input id="ingredients-input" type="text" placeholder="e.g. Lettuce, Tomato, Onion, Beef Patty"
+                  value={itemIngredients} onChange={e => setItemIngredients(e.target.value)} />
               </div>
 
               {/* Description */}
               <div className="form-group">
                 <label htmlFor="desc-textarea">Description</label>
-                <textarea id="desc-textarea" rows="3" placeholder="Describe flavors, ingredients, allergensâ€¦"
-                  value={newItemDesc} onChange={e => setNewItemDesc(e.target.value)} />
+                <textarea id="desc-textarea" rows="3" placeholder="Describe flavors, ingredients, allergens…"
+                  value={itemDesc} onChange={e => setItemDesc(e.target.value)} />
               </div>
 
-              <button type="submit" className="btn-primary w-full" disabled={isSubmittingItem}>
-                {isSubmittingItem ? 'Addingâ€¦' : <><Plus size={16} /> Add to Menu</>}
-              </button>
+              <div className="edit-modal-actions" style={{ marginTop: '1rem' }}>
+                {editingItem && <button type="button" className="btn-secondary flex-1" onClick={cancelEdit}>Cancel</button>}
+                <button type="submit" className={editingItem ? "btn-primary flex-1" : "btn-primary w-full"} disabled={isSubmitting}>
+                  {isSubmitting ? (editingItem ? 'Saving…' : 'Adding…') : <>{editingItem ? 'Save Changes' : <><Plus size={16} /> Add to Menu</>}</>}
+                </button>
+              </div>
             </form>
           </div>
 
@@ -627,10 +604,10 @@ export default function AdminView() {
                   </select>
                 </div>
 
-                {/* Tags */}
+                {/* Ingredients */}
                 <div className="form-group">
-                  <label htmlFor="edit-tags">Dietary Tags</label>
-                  <input id="edit-tags" type="text" value={editTags} onChange={e => setEditTags(e.target.value)} />
+                  <label htmlFor="edit-ingredients">Ingredients</label>
+                  <input id="edit-ingredients" type="text" value={editIngredients} onChange={e => setEditIngredients(e.target.value)} />
                 </div>
 
                 {/* Description */}

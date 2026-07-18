@@ -6,7 +6,13 @@ const VALID_STATUSES = ['pending', 'approved', 'preparing', 'ready', 'completed'
 export const orderService = {
   async findByTenant(tenantId, filters = {}) {
     const where = { tenantId };
-    if (filters.status) where.status = filters.status;
+    if (filters.status) {
+      if (Array.isArray(filters.status)) {
+        where.status = { in: filters.status };
+      } else {
+        where.status = filters.status;
+      }
+    }
     if (filters.tableNumber) {
       const tableNumber = parseInt(filters.tableNumber, 10);
       if (Number.isInteger(tableNumber)) where.tableNumber = tableNumber;

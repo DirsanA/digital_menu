@@ -9,7 +9,8 @@ export async function GET(request) {
   try {
     const tenant = await resolveTenant(request);
     const items = await menuService.findByTenant(tenant.id);
-    return NextResponse.json({ success: true, data: items.map(transformMenuItem) });
+    const transformedItems = items.map(transformMenuItem);
+    return NextResponse.json({ success: true, data: transformedItems });
   } catch (error) {
     return handleApiError(error);
   }
@@ -26,14 +27,19 @@ export async function POST(request) {
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
 
+      // Use either ingredients or tags (ingredients takes priority for frontend)
+      const ingredientsInput = formData.get('ingredients');
+      const tagsInput = formData.get('tags');
+      const processedTags = (ingredientsInput || tagsInput)
+        ? (ingredientsInput || tagsInput).split(',').map((t) => t.trim()).filter(Boolean)
+        : [];
+
       data = {
         name: formData.get('name'),
         price: parseFloat(formData.get('price')),
         category: formData.get('category'),
         description: formData.get('description') || '',
-        tags: formData.get('tags')
-          ? formData.get('tags').split(',').map((t) => t.trim()).filter(Boolean)
-          : [],
+        tags: processedTags,
         available: formData.get('available') === 'true',
       };
 
@@ -47,12 +53,17 @@ export async function POST(request) {
       data.imageUrl = imageUrl;
     } else {
       const body = await request.json();
+      // Use either ingredients or tags
+      const processedTags = Array.isArray(body.ingredients) 
+        ? body.ingredients 
+        : (Array.isArray(body.tags) ? body.tags : []);
+
       data = {
         name: body.name,
         price: parseFloat(body.price),
         category: body.category,
         description: body.description || '',
-        tags: Array.isArray(body.tags) ? body.tags : [],
+        tags: processedTags,
         available: body.available ?? true,
         imageUrl: body.imageUrl || '/images/default_food.jpg',
       };
