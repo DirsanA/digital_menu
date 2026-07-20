@@ -2,7 +2,7 @@ import './globals.css';
 import LayoutClient from './layout-client';
 
 export const metadata = {
-  title: 'Bistro Noir — Digital Menu',
+  title: 'Digital Menu',
   description: 'Browse our menu, customise your order, and track it live from your table.',
 };
 
