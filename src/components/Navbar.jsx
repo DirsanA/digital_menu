@@ -6,19 +6,19 @@ import { Utensils, ChefHat, Eye } from 'lucide-react';
 
 export default function Navbar() {
   const pathname = usePathname();
-  const isAdmin = pathname === '/admin';
+  const isAdminPage = pathname.startsWith('/admin') || pathname === '/login';
 
   return (
     <nav className="navbar glass">
       <div className="nav-logo">
         <Utensils size={24} className="text-primary" />
-        <span>Bistro Noir</span>
+        <span>Digital Menu</span>
       </div>
       <Link
-        href={isAdmin ? '/' : '/admin'}
+        href={isAdminPage ? '/' : '/login'}
         className="nav-toggle-btn"
       >
-        {isAdmin ? (
+        {isAdminPage ? (
           <>
             <Eye size={16} />
             <span>Customer Menu</span>
@@ -26,7 +26,7 @@ export default function Navbar() {
         ) : (
           <>
             <ChefHat size={16} />
-            <span>Staff Portal</span>
+            <span>Staff</span>
           </>
         )}
       </Link>

@@ -1,45 +1,77 @@
 import { NextResponse } from 'next/server';
-import { getMenu, addMenuItem } from '@/lib/db';
+import { menuService } from '@/services/menuService';
+import { resolveTenant, transformMenuItem } from '@/lib/tenant';
+import { authenticate, authorize, ROLES } from '@/lib/middleware';
+import { uploadImage } from '@/lib/cloudinary';
+import { handleApiError } from '@/lib/errors';
 
-export async function GET() {
-  return NextResponse.json({ success: true, data: getMenu() });
+export async function GET(request) {
+  try {
+    const tenant = await resolveTenant(request);
+    const items = await menuService.findByTenant(tenant.id);
+    const transformedItems = items.map(transformMenuItem);
+    return NextResponse.json({ success: true, data: transformedItems });
+  } catch (error) {
+    return handleApiError(error);
+  }
 }
 
 export async function POST(request) {
   try {
-    const formData = await request.formData();
-    const name = formData.get('name');
-    const price = parseFloat(formData.get('price'));
-    const category = formData.get('category');
-    const description = formData.get('description') || '';
-    const tags = formData.get('tags') ? formData.get('tags').split(',').map(t => t.trim()).filter(Boolean) : [];
-    const available = formData.get('available') === 'true';
+    const user = await authenticate(request);
+    authorize(ROLES.MANAGER)(user);
+    const tenant = await resolveTenant(request);
+    const contentType = request.headers.get('content-type') || '';
 
-    let imageUrl = '/images/default_food.jpg';
-    
-    const file = formData.get('image');
-    if (file && file instanceof File) {
-      // Convert file to Base64 data URL
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      imageUrl = `data:${file.type};base64,${buffer.toString('base64')}`;
-    } else if (typeof file === 'string' && file.trim() !== '') {
-      imageUrl = file;
+    let data;
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await request.formData();
+
+      // Use either ingredients or tags (ingredients takes priority for frontend)
+      const ingredientsInput = formData.get('ingredients');
+      const tagsInput = formData.get('tags');
+      const processedTags = (ingredientsInput || tagsInput)
+        ? (ingredientsInput || tagsInput).split(',').map((t) => t.trim()).filter(Boolean)
+        : [];
+
+      data = {
+        name: formData.get('name'),
+        price: parseFloat(formData.get('price')),
+        category: formData.get('category'),
+        description: formData.get('description') || '',
+        tags: processedTags,
+        available: formData.get('available') === 'true',
+      };
+
+      let imageUrl = '/images/default_food.jpg';
+      const file = formData.get('image');
+      if (file && file instanceof File) {
+        imageUrl = await uploadImage(file);
+      } else if (typeof file === 'string' && file.trim() !== '') {
+        imageUrl = file;
+      }
+      data.imageUrl = imageUrl;
+    } else {
+      const body = await request.json();
+      // Use either ingredients or tags
+      const processedTags = Array.isArray(body.ingredients) 
+        ? body.ingredients 
+        : (Array.isArray(body.tags) ? body.tags : []);
+
+      data = {
+        name: body.name,
+        price: parseFloat(body.price),
+        category: body.category,
+        description: body.description || '',
+        tags: processedTags,
+        available: body.available ?? true,
+        imageUrl: body.imageUrl || '/images/default_food.jpg',
+      };
     }
 
-    const newItem = addMenuItem({
-      name,
-      price,
-      category,
-      description,
-      tags,
-      available,
-      image: imageUrl
-    });
-
-    return NextResponse.json({ success: true, data: newItem }, { status: 201 });
+    const item = await menuService.create(tenant.id, data);
+    return NextResponse.json({ success: true, data: transformMenuItem(item) }, { status: 201 });
   } catch (error) {
-    console.error('Error creating menu item:', error);
-    return NextResponse.json({ success: false, message: 'Internal Server Error' }, { status: 500 });
+    return handleApiError(error);
   }
 }

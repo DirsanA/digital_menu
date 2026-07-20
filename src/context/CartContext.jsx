@@ -1,11 +1,12 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 
 const CartContext = createContext(null);
 export const useCart = () => useContext(CartContext);
 
 const API_BASE = '/api';
+const TENANT_SLUG_KEY = 'tenantSlug';
 
 export const CartProvider = ({ children }) => {
   const [menu, setMenu] = useState([]);
@@ -13,17 +14,29 @@ export const CartProvider = ({ children }) => {
   const [menuError, setMenuError] = useState(null);
   const [cart, setCart] = useState([]);
   const [activeOrder, setActiveOrder] = useState(null);
+  const [tenantSlug, setTenantSlugState] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(TENANT_SLUG_KEY) || '';
+    }
+    return '';
+  });
 
-  // Restore active order from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('activeOrder');
-    if (saved) setActiveOrder(JSON.parse(saved));
+  const setTenantSlug = useCallback((slug) => {
+    const normalized = slug?.trim() || '';
+    setTenantSlugState(normalized);
+    if (normalized) localStorage.setItem(TENANT_SLUG_KEY, normalized);
+    else localStorage.removeItem(TENANT_SLUG_KEY);
   }, []);
 
-  const fetchMenu = async () => {
+  const headers = useMemo(() => ({
+    'Content-Type': 'application/json',
+    ...(tenantSlug ? { 'x-tenant-slug': tenantSlug } : {}),
+  }), [tenantSlug]);
+
+  const fetchMenu = useCallback(async () => {
     setMenuLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/menu`);
+      const res = await fetch(`${API_BASE}/menu`, { headers });
       const data = await res.json();
       if (data.success) setMenu(data.data);
       else setMenuError(data.message || 'Failed to fetch menu');
@@ -33,9 +46,9 @@ export const CartProvider = ({ children }) => {
     } finally {
       setMenuLoading(false);
     }
-  };
+  }, [headers]);
 
-  useEffect(() => { fetchMenu(); }, []);
+  useEffect(() => { fetchMenu(); }, [fetchMenu]);
 
   useEffect(() => {
     if (activeOrder) localStorage.setItem('activeOrder', JSON.stringify(activeOrder));
@@ -71,11 +84,15 @@ export const CartProvider = ({ children }) => {
     try {
       const res = await fetch(`${API_BASE}/orders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ tableNumber, items: cart, notes })
       });
       const data = await res.json();
-      if (data.success) { setActiveOrder(data.data); clearCart(); return { success: true, order: data.data }; }
+      if (data.success) {
+        setActiveOrder(data.data);
+        clearCart();
+        return { success: true, order: data.data };
+      }
       return { success: false, error: data.message };
     } catch (err) {
       console.error(err);
@@ -85,7 +102,7 @@ export const CartProvider = ({ children }) => {
 
   const checkActiveOrderStatus = async (orderId) => {
     try {
-      const res = await fetch(`${API_BASE}/orders/${orderId}`);
+      const res = await fetch(`${API_BASE}/orders/${orderId}`, { headers });
       const data = await res.json();
       if (data.success) setActiveOrder(data.data);
     } catch (err) { console.error(err); }
@@ -96,7 +113,8 @@ export const CartProvider = ({ children }) => {
       menu, menuLoading, menuError, fetchMenu,
       cart, addToCart, removeFromCart, updateQuantity, clearCart,
       cartTotal, cartCount,
-      submitOrder, activeOrder, setActiveOrder, checkActiveOrderStatus
+      submitOrder, activeOrder, setActiveOrder, checkActiveOrderStatus,
+      tenantSlug, setTenantSlug,
     }}>
       {children}
     </CartContext.Provider>

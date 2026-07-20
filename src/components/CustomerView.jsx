@@ -1,56 +1,103 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useSocket } from '@/context/SocketContext';
-import {
-  ShoppingCart, Plus, Minus, Trash2, Utensils,
-  Sparkles, ChefHat, CheckCircle2, MessageSquare,
-  Coffee, IceCream, X, Flame, Search, ArrowRight,
-  HelpCircle, MapPin, Star, Clock3, Package,
-  Camera, Share2
-} from 'lucide-react';
+import DishCard from './DishCard';
+import DishDetailModal from './DishDetailModal';
+import OrderTray from './OrderTray';
+import { Utensils, Plus, ShoppingCart, Grid, List } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 
-const getImageUrl = (imagePath) => {
-  if (!imagePath) return '/images/default_food.jpg';
-  if (imagePath.startsWith('http://') || imagePath.startsWith('https://') || imagePath.startsWith('data:')) return imagePath;
-  return imagePath;
-};
+function adaptToDish(item) {
+  const tags = item.tags || [];
+  const isPopular = tags.some(t => typeof t === 'string' && t.toLowerCase() === 'popular');
+  const spicyTags = tags.filter(t => typeof t === 'string' && ['mild', 'medium', 'hot', 'spicy'].includes(t.toLowerCase()));
+  const spicyLevel = spicyTags.length > 0 ? Math.min(spicyTags.length + 1, 3) : 0;
+
+  // Get ingredients from item
+  let dishIngredients = [];
+  if (item.ingredients) {
+    dishIngredients = item.ingredients;
+  } else if (item.tags) {
+    dishIngredients = item.tags;
+  }
+  
+  // If it's a string, split by commas
+  if (typeof dishIngredients === 'string') {
+    dishIngredients = dishIngredients.split(',').map(s => s.trim()).filter(s => s.length > 0);
+  } else if (!Array.isArray(dishIngredients)) {
+    // If it's not an array or string, make it an empty array
+    dishIngredients = [];
+  } else {
+    // Ensure all elements are strings
+    dishIngredients = dishIngredients.filter(ing => typeof ing === 'string').map(ing => ing.trim()).filter(ing => ing.length > 0);
+  }
+
+  // Extract allergens from tags as well
+  const allergenTags = tags.filter(t => 
+    ['milk', 'gluten', 'nuts', 'soy', 'eggs', 'fish', 'shellfish', 'wheat'].includes(t.toLowerCase())
+  );
+
+  return {
+    id: item.id,
+    name: item.name,
+    description: item.description || 'A delicious dish made with the freshest ingredients',
+    price: item.price,
+    image: item.image,
+    category: item.category || 'Mains',
+    allergens: allergenTags.length > 0 ? allergenTags : [],
+    spicyLevel,
+    isVegetarian: tags.some(t => t.toLowerCase() === 'vegetarian' || t.toLowerCase() === 'vegan'),
+    isVegan: tags.some(t => t.toLowerCase() === 'vegan'),
+    isGlutenFree: tags.some(t => t.toLowerCase() === 'gluten-free'),
+    prepTime: item.prepTime || Math.floor(Math.random() * 15) + 10, // Use item's prepTime if available
+    calories: item.calories || 500, // Use item's calories if available
+    nutrition: item.nutrition || { protein: 25, carbs: 40, fat: 20 }, // Use item's nutrition if available
+    ingredients: dishIngredients,
+    popular: isPopular, // Only use tag-based popularity, no random
+  };
+}
 
 export default function CustomerView() {
+  const searchParams = useSearchParams();
+  const slugParam = searchParams.get('slug');
+
   const {
     menu, menuLoading, menuError,
     cart, addToCart, removeFromCart, updateQuantity, cartTotal, cartCount,
-    submitOrder, activeOrder, setActiveOrder, checkActiveOrderStatus
+    clearCart,
+    submitOrder, activeOrder, setActiveOrder, checkActiveOrderStatus,
+    setTenantSlug,
   } = useCart();
-
   const { connected } = useSocket();
 
+  useEffect(() => {
+    if (slugParam) setTenantSlug(slugParam);
+  }, [slugParam, setTenantSlug]);
+
   const [tableNumber, setTableNumber] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewMode, setViewMode] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 630) return 'list';
+    return 'grid';
+  });
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [customQuantity, setCustomQuantity] = useState(1);
-  const [customInstructions, setCustomInstructions] = useState('');
+  useEffect(() => {
+    const handleResize = () => {
+      setViewMode(window.innerWidth < 630 ? 'list' : 'grid');
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
-  const [orderNotes, setOrderNotes] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [checkoutStep, setCheckoutStep] = useState('cart');
-  const [tableError, setTableError] = useState('');
+  const [selectedDish, setSelectedDish] = useState(null);
+  const [isTrayOpen, setIsTrayOpen] = useState(false);
+  const [lastOrder, setLastOrder] = useState(null);
 
-  const tableInputRef = useRef(null);
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [cameraItem, setCameraItem] = useState(null);
-  const [capturedPhoto, setCapturedPhoto] = useState(null);
-
-  // Real-time tracking relies on polling in Vercel Serverless
-
+  // Real-time tracking
   useEffect(() => {
     if (activeOrder) {
       const interval = setInterval(() => checkActiveOrderStatus(activeOrder.id), 12000);
@@ -58,442 +105,253 @@ export default function CustomerView() {
     }
   }, [activeOrder]);
 
-  useEffect(() => {
-    if (checkoutStep === 'table' && tableInputRef.current) {
-      setTimeout(() => tableInputRef.current?.focus(), 120);
-    }
-  }, [checkoutStep]);
+  const adaptedDishes = useMemo(() =>
+    menu.filter(item => item.available).map(adaptToDish),
+    [menu]
+  );
 
-  const categories = ['All', 'Starters', 'Mains', 'Desserts', 'Drinks'];
-  const categoryIcons = {
-    All: <Utensils size={15} />,
-    Starters: <ChefHat size={15} />,
-    Mains: <Package size={15} />,
-    Desserts: <IceCream size={15} />,
-    Drinks: <Coffee size={15} />,
-  };
+  // Get unique categories from menu items
+  const CATEGORIES = useMemo(() => {
+    const categories = ['ALL'];
+    const uniqueCats = new Set();
+    adaptedDishes.forEach(dish => {
+      const cat = dish.category?.trim().toUpperCase();
+      if (cat && !uniqueCats.has(cat)) {
+        uniqueCats.add(cat);
+        categories.push(cat);
+      }
+    });
+    return categories;
+  }, [adaptedDishes]);
 
-  const filteredMenu = menu.filter(item => {
-    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
-    const matchesSearch =
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch && item.available;
-  });
+  const filteredDishes = useMemo(() =>
+    adaptedDishes.filter(dish => {
+      if (selectedCategory !== 'ALL') {
+        return dish.category?.trim().toUpperCase() === selectedCategory;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return dish.name.toLowerCase().includes(q) || dish.description.toLowerCase().includes(q);
+      }
+      return true;
+    }),
+    [adaptedDishes, selectedCategory, searchQuery]
+  );
 
-  const openCustomizationModal = (item) => {
-    setSelectedItem(item); setCustomQuantity(1); setCustomInstructions(''); setIsModalOpen(true);
-  };
-  const handleAddToOrder = () => { addToCart(selectedItem, customQuantity, customInstructions); setIsModalOpen(false); };
-  const openCart = () => { setCheckoutStep('cart'); setIsCartDrawerOpen(true); };
-  const handleProceedToTable = () => { setTableError(''); setCheckoutStep('table'); };
-  const handleTableSubmit = (e) => {
-    e.preventDefault();
-    if (!tableNumber.trim()) { setTableError('Please enter your table number to continue.'); return; }
-    setTableError(''); setCheckoutStep('confirm');
-  };
-  const handlePlaceOrder = async () => {
-    if (cart.length === 0 || !tableNumber.trim()) return;
-    setIsSubmitting(true);
-    const result = await submitOrder(tableNumber.trim(), orderNotes);
-    setIsSubmitting(false);
-    if (result.success) {
-      setIsCartDrawerOpen(false); setCheckoutStep('cart'); setOrderNotes('');
-    } else { alert(result.error || 'Failed to place order. Please try again.'); }
-  };
-  const handleCloseDrawer = () => { setIsCartDrawerOpen(false); setCheckoutStep('cart'); };
+  // Build prototype CartItems from API-driven cart
+  const trayCartItems = useMemo(() =>
+    cart.map(cartItem => {
+      const dish = adaptedDishes.find(d => d.id === cartItem.id);
+      return dish ? {
+        dish,
+        quantity: cartItem.quantity,
+        selectedExclusions: [],
+        selectedAdditions: [],
+      } : null;
+    }).filter(Boolean),
+    [cart, adaptedDishes]
+  );
 
-  const openCamera = (item, e) => {
-    e.stopPropagation();
-    setCameraItem(item);
-    setCapturedPhoto(null);
-    setIsCameraOpen(true);
-  };
-
-  const startCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } });
-      if (videoRef.current) videoRef.current.srcObject = stream;
-    } catch {
-      alert('Camera access denied or not available.');
-    }
-  };
-
-  const capturePhoto = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
-    setCapturedPhoto(canvas.toDataURL('image/jpeg'));
-    if (video.srcObject) {
-      video.srcObject.getTracks().forEach(t => t.stop());
-      video.srcObject = null;
+  // OrderTray ops → adapt to CartContext
+  const handleTrayUpdateQuantity = (idx, change) => {
+    const item = trayCartItems[idx];
+    if (!item) return;
+    const newQ = item.quantity + change;
+    const cartItem = cart.find(c => c.id === item.dish.id);
+    if (!cartItem) return;
+    if (newQ <= 0) {
+      removeFromCart(cartItem.id, cartItem.customizations);
+    } else {
+      updateQuantity(cartItem.id, cartItem.customizations, newQ);
     }
   };
 
-  const closeCamera = () => {
-    const video = videoRef.current;
-    if (video?.srcObject) {
-      video.srcObject.getTracks().forEach(t => t.stop());
-      video.srcObject = null;
+  const handleTrayRemoveItem = (idx) => {
+    const item = trayCartItems[idx];
+    if (!item) return;
+    const cartItem = cart.find(c => c.id === item.dish.id);
+    if (cartItem) removeFromCart(cartItem.id, cartItem.customizations);
+  };
+
+  const handleDishAddToCart = (dish, exclusions = [], additions = []) => {
+    const menuItem = menu.find(m => m.id === dish.id);
+    if (menuItem) {
+      // Combine exclusions and additions into notes for the cart
+      const notes = [];
+      if (exclusions.length > 0) notes.push(`No: ${exclusions.join(', ')}`);
+      if (additions.length > 0) notes.push(`Add: ${additions.map(a => a.name).join(', ')}`);
+      
+      addToCart(menuItem, 1, notes.join(' | '));
+      setIsTrayOpen(true);
     }
-    setIsCameraOpen(false); setCapturedPhoto(null); setCameraItem(null);
   };
 
-  const shareItem = async (item, e) => {
-    e.stopPropagation();
-    const data = { title: item.name, text: `Check out ${item.name} — ${item.description || 'from our menu!'}`, url: window.location.href };
-    if (navigator.share) {
-      try { await navigator.share(data); } catch (err) { if (err.name !== 'AbortError') console.error(err); }
-    } else if (navigator.clipboard) {
-      try { await navigator.clipboard.writeText(`${item.name} — ${item.description || ''} ${window.location.href}`); alert('Link copied!'); } catch { alert('Sharing not supported.'); }
-    } else { alert('Sharing not supported.'); }
+  // OrderTray checkout → real submit
+  const handleTrayCheckout = async (trayTableNumber) => {
+    const result = await submitOrder(trayTableNumber || '1', '');
+    if (result?.success) {
+      setLastOrder(result.order);
+    }
   };
-
-  useEffect(() => {
-    if (isCameraOpen) startCamera();
-    return () => { if (videoRef.current?.srcObject) { videoRef.current.srcObject.getTracks().forEach(t => t.stop()); } };
-  }, [isCameraOpen]);
 
   if (menuLoading && menu.length === 0) {
     return (
-      <div className="view-loader-container">
-        <div className="spinner" />
-        <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Loading the menu…</p>
+      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+        <div className="text-zinc-400 text-center space-y-3">
+          <div className="w-12 h-12 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm font-medium">Loading the menu…</p>
+        </div>
       </div>
     );
   }
 
   if (menuError && menu.length === 0) {
     return (
-      <div className="view-error-container">
-        <HelpCircle size={48} style={{ color: 'var(--danger)' }} />
-        <h3>Unable to Load Menu</h3>
-        <p style={{ color: 'var(--text-secondary)' }}>{menuError}</p>
-        <button className="btn-primary" onClick={() => window.location.reload()}>Try Again</button>
-      </div>
-    );
-  }
-
-  if (activeOrder) {
-    const steps = [
-      { key: 'pending',   label: 'Order Received',  desc: 'Your order was sent to the kitchen', icon: <Clock3 size={14} /> },
-      { key: 'preparing', label: 'Preparing',        desc: 'Chefs are cooking your meal',        icon: <ChefHat size={14} /> },
-      { key: 'ready',     label: 'Ready to Serve',   desc: 'Your food is leaving the kitchen',   icon: <Star size={14} /> },
-    ];
-    const statusMap = { pending: 1, preparing: 2, ready: 3, completed: 4, cancelled: 0 };
-    const currentLevel = statusMap[activeOrder.status] || 0;
-    const getStepClass = (key) => {
-      if (activeOrder.status === 'cancelled') return 'step-cancelled';
-      const level = statusMap[key];
-      if (currentLevel >= level) return 'step-completed';
-      if (currentLevel + 1 === level) return 'step-active';
-      return 'step-pending';
-    };
-
-    return (
-      <div className="tracker-container fade-in">
-        <div className="tracker-card glass">
-          <div className="tracker-header">
-            <Sparkles className="spark-icon" size={28} />
-            <h2>Order Tracking</h2>
-            <p>Table <strong>{activeOrder.tableNumber}</strong> · Order #{activeOrder.id.slice(-6).toUpperCase()}</p>
-          </div>
-          {activeOrder.status === 'cancelled' ? (
-            <div className="cancelled-banner">
-              <h3>Order Cancelled</h3>
-              <p>Your order was cancelled. Please call a staff member or place a new order.</p>
-            </div>
-          ) : activeOrder.status === 'completed' ? (
-            <div className="completed-banner">
-              <CheckCircle2 size={52} className="completed-icon" />
-              <h3>Bon Appétit!</h3>
-              <p>Your order has been fully served. Enjoy your meal!</p>
-            </div>
-          ) : (
-            <div className="timeline">
-              {steps.map((step) => {
-                const cls = getStepClass(step.key);
-                return (
-                  <div key={step.key} className={`timeline-step ${cls}`}>
-                    <div className="step-bullet">{cls === 'step-completed' ? <CheckCircle2 size={10} /> : step.icon}</div>
-                    <div className="step-content"><h4>{step.label}</h4><p>{step.desc}</p></div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          <div className="order-summary-box">
-            <h4>Items in This Order</h4>
-            <div className="summary-list">
-              {activeOrder.items.map((item, idx) => (
-                <div key={idx} className="summary-item">
-                  <span>{item.quantity}× {item.name}</span>
-                  <span style={{ color: 'var(--text-secondary)' }}>${(item.price * item.quantity).toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-            <div className="summary-total">
-              <span>Total</span><span>${activeOrder.totalAmount.toFixed(2)}</span>
-            </div>
-          </div>
-          <button className="btn-secondary w-full" onClick={() => setActiveOrder(null)}>← Back to Menu</button>
+      <div className="min-h-screen bg-[#121212] flex items-center justify-center p-8">
+        <div className="bg-zinc-900/60 border border-zinc-800 p-8 rounded-3xl text-center max-w-sm space-y-4">
+          <Utensils size={40} className="mx-auto text-zinc-500" />
+          <h3 className="text-white font-bold text-lg">Unable to Load Menu</h3>
+          <p className="text-zinc-400 text-sm">{menuError}</p>
+          <button className="bg-amber-500 hover:bg-orange-500 text-zinc-900 font-bold py-2.5 px-6 rounded-xl transition-all" onClick={() => window.location.reload()}>Try Again</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="menu-browsing-container fade-in">
-      <div className="menu-hero">
-        <div className="menu-hero-text">
-          <h1 className="menu-hero-title">Explore Our <span className="hero-highlight">Menu</span></h1>
-          <p className="menu-hero-subtitle">Browse, customise, and order — your table, your pace.</p>
-        </div>
-        <div className="menu-hero-meta">
-          <span className="hero-badge">
-            <span className={`status-indicator ${connected ? 'online' : 'offline'}`} />
-            {connected ? 'Kitchen Online' : 'Connecting…'}
-          </span>
-          <span className="hero-badge hero-badge-count">
-            <Utensils size={13} /> {menu.length} items
-          </span>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#121212] text-zinc-100 font-sans antialiased overflow-x-hidden pb-24">
+      {/* Header/Navbar */}
+      <header className="sticky top-0 z-40 bg-zinc-900/95 backdrop-blur-md border-b border-zinc-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/10">
+              <Utensils className="w-5 h-5 text-zinc-900 stroke-[2.5]" />
+            </div>
+            <div>
+              <span className="font-display font-black text-base uppercase leading-none text-white flex items-center gap-1.5">
+                Digital Menu
+                <span className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
+                <span className="text-amber-500 text-xs ml-1">LIVE</span>
+              </span>
+            </div>
+          </div>
 
-      <div className="search-bar-row">
-        <div className="search-wrapper">
-          <Search size={17} className="search-icon" />
-          <input type="text" placeholder="Search dishes, drinks…" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-          {searchQuery && <X size={15} className="clear-search" onClick={() => setSearchQuery('')} />}
+          <div className="flex items-center gap-3">
+           
+            <button
+              onClick={() => setIsTrayOpen(true)}
+              className="bg-amber-500 hover:bg-orange-500 text-zinc-900 font-bold py-2 px-4 rounded-xl transition-all text-sm flex items-center gap-2"
+            >
+              <ShoppingCart size={16} />
+              {cartCount > 0 && (
+                <span className="bg-zinc-900 text-white rounded-full text-[10px] font-bold px-2 py-0.5">{cartCount}</span>
+              )}
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
 
-      <div className="category-tabs-container">
-        {categories.map((cat) => (
-          <button key={cat} className={`category-tab ${selectedCategory === cat ? 'active' : ''}`} onClick={() => setSelectedCategory(cat)}>
-            {categoryIcons[cat]}{cat}
-          </button>
-        ))}
-      </div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
+        {/* Category Bar */}
+        <div className="bg-zinc-900/70 backdrop-blur-sm rounded-2xl p-4 border border-zinc-700 shadow-lg">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Categories</span>
+              <div className="flex gap-2">
+                {CATEGORIES.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                      selectedCategory === cat
+                        ? "bg-amber-500 text-zinc-900 shadow-md"
+                        : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">View Mode</span>
+              <button 
+                onClick={() => setViewMode('grid')}
+                className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-zinc-800 text-amber-500' : 'text-zinc-500 hover:bg-zinc-800'}`}
+              >
+                <Grid size={18} />
+              </button>
+              <button 
+                onClick={() => setViewMode('list')}
+                className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-zinc-800 text-amber-500' : 'text-zinc-500 hover:bg-zinc-800'}`}
+              >
+                <List size={18} />
+              </button>
+            </div>
+          </div>
+        </div>
 
-      <div className="food-grid">
-        {filteredMenu.map((item) => (
-          <div key={item.id} className="food-card glass glass-hover" onClick={() => openCustomizationModal(item)}>
-            <div className="food-image-wrapper">
-              <img src={getImageUrl(item.image)} alt={item.name} onError={(e) => { e.target.src = '/images/default_food.jpg'; }} />
-              {item.tags?.length > 0 && (
-                <div className="food-card-tags">
-                  {item.tags.map((tag) => (
-                    <span key={tag} className={`badge ${tag.toLowerCase() === 'spicy' ? 'badge-accent' : tag.toLowerCase().includes('healthy') || tag.toLowerCase().includes('vegan') ? 'badge-success' : 'badge-primary'}`}>
-                      {tag.toLowerCase() === 'spicy' && <Flame size={9} />}{tag}
-                    </span>
+        {/* Dish Display */}
+        <section className="relative">
+          {filteredDishes.length === 0 ? (
+            <div className="py-20 text-center">
+              <Utensils size={40} className="mx-auto text-zinc-600 mb-3" />
+              <p className="text-zinc-400 text-sm">No matching dishes found.</p>
+            </div>
+          ) : (
+            viewMode === 'grid' ? (
+              <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-24 pt-16 pb-8">
+                <AnimatePresence mode="popLayout">
+                  {filteredDishes.map(dish => (
+                    <DishCard
+                      key={dish.id}
+                      dish={dish}
+                      onSelect={setSelectedDish}
+                      onAddToCart={handleDishAddToCart}
+                      isInCart={cart.some(c => c.id === dish.id)}
+                      isListView={false}
+                    />
                   ))}
-                </div>
-              )}
-              <span className="food-price-overlay">${item.price.toFixed(2)}</span>
-            </div>
-            <div className="food-card-body">
-              <h3 className="food-card-name">{item.name}</h3>
-              <p className="food-desc">{item.description}</p>
-              <div className="food-card-actions-row">
-                <button className="add-to-cart-btn btn-primary" onClick={(e) => { e.stopPropagation(); openCustomizationModal(item); }}>
-                  <Plus size={15} /> Add to Order
-                </button>
-                <button className="food-action-btn" onClick={(e) => shareItem(item, e)} title="Share"><Share2 size={15} /></button>
-                <button className="food-action-btn" onClick={(e) => openCamera(item, e)} title="Snap"><Camera size={15} /></button>
-              </div>
-            </div>
-          </div>
-        ))}
-        {filteredMenu.length === 0 && <div className="no-items-found"><p>No items match your search.</p></div>}
-      </div>
+                </AnimatePresence>
+              </motion.div>
+            ) : (
+              <motion.div layout className="flex flex-col gap-6 pt-6 pb-8">
+                <AnimatePresence mode="popLayout">
+                  {filteredDishes.map(dish => (
+                    <DishCard
+                      key={dish.id}
+                      dish={dish}
+                      onSelect={setSelectedDish}
+                      onAddToCart={handleDishAddToCart}
+                      isInCart={cart.some(c => c.id === dish.id)}
+                      isListView={true}
+                    />
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+            )
+          )}
+        </section>
+      </main>
 
-      {cartCount > 0 && (
-        <button className="floating-cart-btn" onClick={openCart}>
-          <ShoppingCart size={20} />
-          <span>View Cart ({cartCount})</span>
-          <span className="cart-btn-price">${cartTotal.toFixed(2)}</span>
-        </button>
-      )}
+      <DishDetailModal
+        dish={selectedDish}
+        onClose={() => setSelectedDish(null)}
+        onAddToCart={handleDishAddToCart}
+        isInCart={cart.some(c => c.id === selectedDish?.id)}
+      />
 
-      {isModalOpen && selectedItem && (
-        <div className="modal-backdrop fade-in" onClick={() => setIsModalOpen(false)}>
-          <div className="modal-content glass" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setIsModalOpen(false)}><X size={18} /></button>
-            <div className="modal-header-image">
-              <img src={getImageUrl(selectedItem.image)} alt={selectedItem.name} onError={(e) => { e.target.src = '/images/default_food.jpg'; }} />
-            </div>
-            <div className="modal-body">
-              <div className="modal-title-row">
-                <h2>{selectedItem.name}</h2>
-                <span className="modal-price">${(selectedItem.price * customQuantity).toFixed(2)}</span>
-              </div>
-              <p className="modal-desc">{selectedItem.description}</p>
-              <div className="customization-section">
-                <label className="section-label"><MessageSquare size={14} /> Special Instructions</label>
-                <textarea placeholder="e.g. No onions, extra spicy, allergy note…" value={customInstructions} onChange={(e) => setCustomInstructions(e.target.value)} />
-              </div>
-              <div className="modal-footer">
-                <div className="quantity-selector">
-                  <button className="qty-btn" onClick={() => setCustomQuantity(q => Math.max(1, q - 1))}><Minus size={16} /></button>
-                  <span className="qty-number">{customQuantity}</span>
-                  <button className="qty-btn" onClick={() => setCustomQuantity(q => q + 1)}><Plus size={16} /></button>
-                </div>
-                <button className="btn-primary flex-1" onClick={handleAddToOrder}>Add to Order</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isCameraOpen && (
-        <div className="modal-backdrop fade-in" onClick={closeCamera}>
-          <div className="camera-modal glass" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={closeCamera}><X size={18} /></button>
-            <div className="camera-modal-header">
-              <Camera size={18} />
-              <h3>Snap — {cameraItem?.name}</h3>
-            </div>
-            <div className="camera-body">
-              {!capturedPhoto ? (
-                <>
-                  <div className="camera-viewfinder">
-                    <video ref={videoRef} autoPlay playsInline className="camera-video" />
-                    <canvas ref={canvasRef} style={{ display: 'none' }} />
-                  </div>
-                  <button className="camera-capture-btn" onClick={capturePhoto}>
-                    <div className="capture-ring" />
-                  </button>
-                </>
-              ) : (
-                <div className="camera-preview">
-                  <img src={capturedPhoto} alt="Captured" className="camera-preview-img" />
-                  <div className="camera-preview-actions">
-                    <button className="btn-secondary" onClick={() => { setCapturedPhoto(null); startCamera(); }}>Retake</button>
-                    <button className="btn-primary" onClick={closeCamera}>Done</button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isCartDrawerOpen && (
-        <div className="drawer-backdrop fade-in" onClick={handleCloseDrawer}>
-          <div className="drawer-content glass" onClick={(e) => e.stopPropagation()}>
-            {checkoutStep === 'cart' && (
-              <>
-                <div className="drawer-header">
-                  <div className="flex items-center gap-2">
-                    <ShoppingCart size={19} style={{ color: 'var(--primary)' }} />
-                    <h3>Your Order</h3>
-                  </div>
-                  <button className="drawer-close" onClick={handleCloseDrawer}><X size={19} /></button>
-                </div>
-                <div className="drawer-body">
-                  {cart.length === 0 ? (
-                    <div className="empty-cart-view">
-                      <Utensils size={44} style={{ color: 'var(--text-muted)' }} />
-                      <p>Your cart is empty</p>
-                      <button className="btn-primary mt-4" onClick={handleCloseDrawer}>Browse Menu</button>
-                    </div>
-                  ) : (
-                    <div className="cart-items-list">
-                      {cart.map((item, idx) => (
-                        <div key={idx} className="cart-item-card">
-                          <img src={getImageUrl(item.image)} alt={item.name} className="cart-item-thumb" onError={(e) => { e.target.src = '/images/default_food.jpg'; }} />
-                          <div className="cart-item-details">
-                            <h4>{item.name}</h4>
-                            {item.customizations && <span className="cart-item-notes">"{item.customizations}"</span>}
-                            <span className="cart-item-price">${(item.price * item.quantity).toFixed(2)}</span>
-                          </div>
-                          <div className="cart-item-actions">
-                            <div className="qty-mini-selector">
-                              <button onClick={() => updateQuantity(item.id, item.customizations, item.quantity - 1)}><Minus size={12} /></button>
-                              <span>{item.quantity}</span>
-                              <button onClick={() => updateQuantity(item.id, item.customizations, item.quantity + 1)}><Plus size={12} /></button>
-                            </div>
-                            <button className="remove-item-btn" onClick={() => removeFromCart(item.id, item.customizations)}><Trash2 size={13} /></button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {cart.length > 0 && (
-                  <div className="drawer-footer">
-                    <div className="bill-breakdown">
-                      <div className="bill-row"><span>Subtotal</span><span>${cartTotal.toFixed(2)}</span></div>
-                      <div className="bill-row"><span>Service (10%)</span><span>${(cartTotal * 0.1).toFixed(2)}</span></div>
-                      <div className="bill-row grand-total"><span>Total</span><span>${(cartTotal * 1.1).toFixed(2)}</span></div>
-                    </div>
-                    <button className="btn-primary w-full" onClick={handleProceedToTable}>Proceed to Checkout <ArrowRight size={17} /></button>
-                  </div>
-                )}
-              </>
-            )}
-
-            {checkoutStep === 'table' && (
-              <div className="checkout-step-container fade-in">
-                <button className="checkout-back-btn" onClick={() => setCheckoutStep('cart')}>← Back to cart</button>
-                <div className="checkout-step-body">
-                  <div className="checkout-step-icon"><MapPin size={30} /></div>
-                  <h2 className="checkout-step-title">Where are you sitting?</h2>
-                  <p className="checkout-step-subtitle">Enter your table number so we can deliver your order to the right place.</p>
-                  <form onSubmit={handleTableSubmit} className="table-number-form">
-                    <div className="table-input-wrapper">
-                      <input ref={tableInputRef} type="text" id="checkout-table-input"
-                        className={`table-number-input ${tableError ? 'input-error' : ''}`}
-                        placeholder="e.g. 5 or Bar-2" value={tableNumber}
-                        onChange={(e) => { setTableNumber(e.target.value); setTableError(''); }} maxLength={10} />
-                    </div>
-                    {tableError && <p className="input-error-msg">{tableError}</p>}
-                    <button type="submit" className="btn-primary w-full" style={{ marginTop: '1.5rem' }}>
-                      Confirm Table <ArrowRight size={17} />
-                    </button>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            {checkoutStep === 'confirm' && (
-              <div className="checkout-step-container fade-in">
-                <button className="checkout-back-btn" onClick={() => setCheckoutStep('table')}>← Change table</button>
-                <div className="checkout-step-body">
-                  <div className="checkout-step-icon confirm-icon"><CheckCircle2 size={30} /></div>
-                  <h2 className="checkout-step-title">Ready to order?</h2>
-                  <div className="confirm-table-pill"><MapPin size={14} /> Table <strong>{tableNumber}</strong></div>
-                  <div className="confirm-order-summary">
-                    {cart.map((item, idx) => (
-                      <div key={idx} className="confirm-item-row">
-                        <span className="confirm-item-qty">{item.quantity}×</span>
-                        <span className="confirm-item-name">{item.name}</span>
-                        <span className="confirm-item-price">${(item.price * item.quantity).toFixed(2)}</span>
-                      </div>
-                    ))}
-                    <div className="confirm-total-row">
-                      <span>Total (incl. service)</span>
-                      <span>${(cartTotal * 1.1).toFixed(2)}</span>
-                    </div>
-                  </div>
-                  <div className="confirm-notes-section">
-                    <label className="section-label"><MessageSquare size={13} /> Notes for Kitchen</label>
-                    <input type="text" className="confirm-notes-input" placeholder="e.g. Serve drinks first, no rush…"
-                      value={orderNotes} onChange={(e) => setOrderNotes(e.target.value)} />
-                  </div>
-                  <button className="btn-primary w-full place-order-btn" onClick={handlePlaceOrder} disabled={isSubmitting}>
-                    {isSubmitting ? (<><div className="btn-spinner" /> Sending to Kitchen…</>) : (<><Sparkles size={16} /> Place Order for Table {tableNumber}</>)}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <OrderTray
+        isOpen={isTrayOpen}
+        onClose={() => setIsTrayOpen(false)}
+        cartItems={trayCartItems}
+        onUpdateQuantity={handleTrayUpdateQuantity}
+        onRemoveItem={handleTrayRemoveItem}
+        onClearCart={clearCart}
+        onCheckout={handleTrayCheckout}
+        activeOrder={activeOrder}
+        lastOrder={lastOrder}
+      />
     </div>
   );
 }
