@@ -4,6 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
 import { DollarSign, TrendingUp, FileText, Download, Calendar } from 'lucide-react';
 
+const PERIODS = [
+  { value: 'today', label: 'Today' },
+  { value: 'week', label: 'This Week' },
+  { value: 'month', label: 'This Month' },
+];
+
 export default function ReportsPage() {
   const [dailyRevenue, setDailyRevenue] = useState(null);
   const [salesData, setSalesData] = useState(null);
@@ -38,11 +44,18 @@ export default function ReportsPage() {
     <div className="reports-page fade-in">
       <div className="page-header">
         <h1><TrendingUp size={22} /> Reports</h1>
-        <select className="catalog-filter" value={period} onChange={e => setPeriod(e.target.value)}>
-          <option value="today">Today</option>
-          <option value="week">This Week</option>
-          <option value="month">This Month</option>
-        </select>
+        <div className="period-switcher">
+          {PERIODS.map(p => (
+            <button
+              key={p.value}
+              className={`period-btn${period === p.value ? ' active' : ''}`}
+              onClick={() => setPeriod(p.value)}
+            >
+              <Calendar size={14} />
+              {p.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="dashboard-metrics">
