@@ -80,7 +80,18 @@ export default function CustomerView() {
   const [tableNumber, setTableNumber] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState('grid'); // grid or list
+  const [viewMode, setViewMode] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 630) return 'list';
+    return 'grid';
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setViewMode(window.innerWidth < 630 ? 'list' : 'grid');
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const [selectedDish, setSelectedDish] = useState(null);
   const [isTrayOpen, setIsTrayOpen] = useState(false);
