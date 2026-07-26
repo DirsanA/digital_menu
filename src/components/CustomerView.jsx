@@ -81,9 +81,17 @@ export default function CustomerView() {
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 630) return 'list';
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('viewMode');
+      if (saved === 'grid' || saved === 'list') return saved;
+      return window.innerWidth < 630 ? 'list' : 'grid';
+    }
     return 'grid';
   });
+
+  useEffect(() => {
+    localStorage.setItem('viewMode', viewMode);
+  }, [viewMode]);
 
 
 
