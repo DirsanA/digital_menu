@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { useSocket } from '@/context/SocketContext';
@@ -89,9 +89,34 @@ export default function CustomerView() {
     return 'grid';
   });
 
+  // Once the user (or a saved preference) explicitly picks a mode, never let
+  // responsive/resize logic silently override it (e.g. mobile URL-bar resize
+  // events when scrolling up).
+  const hasExplicitViewMode = useRef(
+    typeof window !== 'undefined' &&
+      (localStorage.getItem('viewMode') === 'grid' || localStorage.getItem('viewMode') === 'list')
+  );
+
+  const changeViewMode = (mode) => {
+    hasExplicitViewMode.current = true;
+    setViewMode(mode);
+  };
+
   useEffect(() => {
     localStorage.setItem('viewMode', viewMode);
   }, [viewMode]);
+
+  // Responsive default only applies when no explicit choice was made, so
+  // resizing the window (including mobile address-bar collapse while scrolling)
+  // never reverts the user's selected view.
+  useEffect(() => {
+    const handleResize = () => {
+      if (hasExplicitViewMode.current) return;
+      setViewMode(window.innerWidth < 630 ? 'list' : 'grid');
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
 
 
@@ -278,13 +303,13 @@ export default function CustomerView() {
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">View Mode</span>
               <button 
-                onClick={() => setViewMode('grid')}
+                onClick={() => changeViewMode('grid')}
                 className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-zinc-800 text-amber-500' : 'text-zinc-500 hover:bg-zinc-800'}`}
               >
                 <Grid size={18} />
               </button>
               <button 
-                onClick={() => setViewMode('list')}
+                onClick={() => changeViewMode('list')}
                 className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-zinc-800 text-amber-500' : 'text-zinc-500 hover:bg-zinc-800'}`}
               >
                 <List size={18} />
