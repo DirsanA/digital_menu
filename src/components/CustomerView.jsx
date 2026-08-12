@@ -284,12 +284,12 @@ export default function CustomerView() {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3 flex-1 min-w-0">
               <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider shrink-0">Categories</span>
-              <div className="flex gap-2 overflow-x-auto min-w-0 flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex flex-wrap gap-2 min-w-0 flex-1">
                 {CATEGORIES.map(cat => (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider whitespace-nowrap shrink-0 transition-all ${
+                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
                       selectedCategory === cat
                         ? "bg-amber-500 text-zinc-900 shadow-md"
                         : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
