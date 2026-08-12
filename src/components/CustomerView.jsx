@@ -281,10 +281,10 @@ export default function CustomerView() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
         {/* Category Bar */}
         <div className="bg-zinc-900/70 backdrop-blur-sm rounded-2xl p-4 border border-zinc-700 shadow-lg">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
               <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider shrink-0">Categories</span>
-              <div className="flex flex-wrap gap-2 min-w-0 flex-1">
+              <div className="flex flex-wrap gap-2 min-w-0">
                 {CATEGORIES.map(cat => (
                   <button
                     key={cat}
