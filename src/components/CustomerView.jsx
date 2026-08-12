@@ -282,14 +282,14 @@ export default function CustomerView() {
         {/* Category Bar */}
         <div className="bg-zinc-900/70 backdrop-blur-sm rounded-2xl p-4 border border-zinc-700 shadow-lg">
           <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-4 flex-wrap">
-              <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Categories</span>
-              <div className="flex gap-2">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider shrink-0">Categories</span>
+              <div className="flex gap-2 overflow-x-auto min-w-0 flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {CATEGORIES.map(cat => (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider whitespace-nowrap shrink-0 transition-all ${
                       selectedCategory === cat
                         ? "bg-amber-500 text-zinc-900 shadow-md"
                         : "bg-zinc-800 hover:bg-zinc-700 text-zinc-300"
@@ -300,7 +300,7 @@ export default function CustomerView() {
                 ))}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">View Mode</span>
               <button 
                 onClick={() => changeViewMode('grid')}
